@@ -161,7 +161,7 @@ const GroupView: React.FC<GroupViewProps> = ({ questionId, onBack }) => {
         toast({
           title: "Already a member",
           description: "You are already a member of this group",
-          variant: "info"
+          variant: "default" // Changed from "info" to "default"
         });
         setInviteCode('');
         return;

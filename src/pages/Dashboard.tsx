@@ -64,33 +64,32 @@ const Dashboard: React.FC = () => {
           if (fallbackError) throw fallbackError;
           
           if (fallbackData) {
+            const parsedOptions = typeof fallbackData.options === 'string' 
+              ? JSON.parse(fallbackData.options) 
+              : fallbackData.options;
+              
             setQuestion({
               id: fallbackData.id,
               text: fallbackData.question,
-              options: Array.isArray(fallbackData.options) ? fallbackData.options : JSON.parse(fallbackData.options)
+              options: Array.isArray(parsedOptions) ? parsedOptions : []
             });
+            
+            // Check if user has voted for this fallback question
+            await checkUserVote(fallbackData.id);
           }
         } else {
+          const parsedOptions = typeof questionData.options === 'string' 
+            ? JSON.parse(questionData.options) 
+            : questionData.options;
+            
           setQuestion({
             id: questionData.id,
             text: questionData.question,
-            options: Array.isArray(questionData.options) ? questionData.options : JSON.parse(questionData.options)
+            options: Array.isArray(parsedOptions) ? parsedOptions : []
           });
-        }
-        
-        // Check if user has voted
-        if (user) {
-          const { data: voteData, error: voteError } = await supabase
-            .from('votes')
-            .select('selected_option')
-            .eq('question_id', questionData?.id || fallbackData?.id)
-            .eq('user_id', user.id)
-            .single();
-            
-          if (voteData) {
-            setHasVoted(true);
-            await fetchResults(questionData?.id || fallbackData?.id);
-          }
+          
+          // Check if user has voted
+          await checkUserVote(questionData.id);
         }
       } catch (error: any) {
         toast({
@@ -100,6 +99,22 @@ const Dashboard: React.FC = () => {
         });
       } finally {
         setIsLoading(false);
+      }
+    };
+    
+    const checkUserVote = async (questionId: string) => {
+      if (user) {
+        const { data: voteData, error: voteError } = await supabase
+          .from('votes')
+          .select('selected_option')
+          .eq('question_id', questionId)
+          .eq('user_id', user.id)
+          .single();
+          
+        if (voteData) {
+          setHasVoted(true);
+          await fetchResults(questionId);
+        }
       }
     };
     
