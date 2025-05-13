@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { Navigate } from 'react-router-dom';
+import { Navigate, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import QuestionOfDay from '@/components/poll/QuestionOfDay';
 import ResultsView from '@/components/poll/ResultsView';
@@ -33,6 +33,7 @@ const Dashboard: React.FC = () => {
   
   const { toast } = useToast();
   const { user, signOut } = useAuth();
+  const navigate = useNavigate();
   
   // Redirect to auth if not signed in
   if (!user) {
@@ -119,28 +120,65 @@ const Dashboard: React.FC = () => {
     };
     
     fetchQuestion();
+
+    // Subscribe to vote changes to update results in real-time
+    const channel = supabase
+      .channel('votes-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'votes'
+        },
+        (payload) => {
+          if (question) {
+            fetchResults(question.id);
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, [user, toast]);
   
   // Fetch results when user has voted
   const fetchResults = async (questionId: string) => {
     try {
-      // Get results for the question
-      const { data: votesData, error: votesError } = await supabase
+      // Get all votes for the question to calculate totals
+      const { data: allVotesData, error: allVotesError } = await supabase
         .from('votes')
-        .select('selected_option, count')
-        .eq('question_id', questionId)
-        .group('selected_option');
+        .select('selected_option')
+        .eq('question_id', questionId);
         
-      if (votesError) throw votesError;
+      if (allVotesError) throw allVotesError;
+      
+      // Count votes for each option
+      const voteCounts: Record<string, number> = {};
+      if (question) {
+        // Initialize all options with zero votes
+        question.options.forEach(option => {
+          voteCounts[option] = 0;
+        });
+      }
+      
+      // Count actual votes
+      if (allVotesData && allVotesData.length > 0) {
+        allVotesData.forEach(vote => {
+          const option = vote.selected_option;
+          voteCounts[option] = (voteCounts[option] || 0) + 1;
+        });
+      }
       
       // Calculate total votes
-      const totalVotes = votesData.reduce((total, item) => total + (item.count || 0), 0);
+      const totalVotes = Object.values(voteCounts).reduce((sum, count) => sum + count, 0);
       
       // Format results
       if (question) {
         const formattedResults = question.options.map((option, index) => {
-          const optionData = votesData.find(vote => vote.selected_option === option);
-          const votes = optionData ? optionData.count : 0;
+          const votes = voteCounts[option] || 0;
           const percentage = totalVotes > 0 ? Math.round((votes / totalVotes) * 100) : 0;
           
           return {
@@ -174,6 +212,7 @@ const Dashboard: React.FC = () => {
   const handleSignOut = async () => {
     try {
       await signOut();
+      navigate('/auth');
     } catch (error) {
       // Error is already handled in the signOut function
     }

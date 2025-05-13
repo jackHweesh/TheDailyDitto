@@ -20,6 +20,11 @@ const ResultsView: React.FC<ResultsViewProps> = ({ question, results, onViewGrou
   const currentDate = new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
   const totalVotes = results.reduce((total, item) => total + item.votes, 0);
 
+  // Make sure we always have data to display
+  const resultsWithData = results.length === 0 
+    ? [{ option: 'No votes yet', votes: 0, percentage: 0, color: '#cccccc' }] 
+    : results;
+
   return (
     <Card className="w-full max-w-md mx-auto shadow-lg border-0 animate-fade-in">
       <CardHeader className="space-y-1">
@@ -30,7 +35,7 @@ const ResultsView: React.FC<ResultsViewProps> = ({ question, results, onViewGrou
           </div>
         </div>
         <h2 className="text-xl font-semibold text-alike-navy">{question}</h2>
-        <p className="text-sm text-muted-foreground">Total of {totalVotes} people have answered this question</p>
+        <p className="text-sm text-muted-foreground">Total of {totalVotes} {totalVotes === 1 ? 'person has' : 'people have'} answered this question</p>
       </CardHeader>
       <CardContent className="space-y-4">
         <Tabs defaultValue="pie" className="w-full">
@@ -42,7 +47,7 @@ const ResultsView: React.FC<ResultsViewProps> = ({ question, results, onViewGrou
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
                 <Pie
-                  data={results}
+                  data={resultsWithData}
                   cx="50%"
                   cy="50%"
                   labelLine={false}
@@ -51,7 +56,7 @@ const ResultsView: React.FC<ResultsViewProps> = ({ question, results, onViewGrou
                   dataKey="votes"
                   label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
                 >
-                  {results.map((entry, index) => (
+                  {resultsWithData.map((entry, index) => (
                     <Cell key={`cell-${index}`} fill={entry.color} />
                   ))}
                 </Pie>
@@ -61,7 +66,7 @@ const ResultsView: React.FC<ResultsViewProps> = ({ question, results, onViewGrou
           <TabsContent value="bar" className="h-64">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart
-                data={results}
+                data={resultsWithData}
                 layout="vertical"
                 margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
               >
@@ -86,7 +91,7 @@ const ResultsView: React.FC<ResultsViewProps> = ({ question, results, onViewGrou
         </Tabs>
         
         <div className="flex flex-col space-y-2">
-          {results.map((result, index) => (
+          {resultsWithData.map((result, index) => (
             <div key={index} className="flex items-center justify-between">
               <div className="flex items-center space-x-2">
                 <div 
