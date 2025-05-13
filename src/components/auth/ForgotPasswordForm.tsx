@@ -5,6 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card';
 import { useToast } from '@/components/ui/use-toast';
 import Logo from '../Logo';
+import { useAuth } from '@/context/AuthContext';
 
 interface ForgotPasswordFormProps {
   onBackToLogin: () => void;
@@ -12,15 +13,25 @@ interface ForgotPasswordFormProps {
 
 const ForgotPasswordForm: React.FC<ForgotPasswordFormProps> = ({ onBackToLogin }) => {
   const [email, setEmail] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
+  const { resetPassword } = useAuth();
 
-  const handleReset = (e: React.FormEvent) => {
+  const handleReset = async (e: React.FormEvent) => {
     e.preventDefault();
-    // This would connect to Supabase in a real implementation
-    toast({
-      title: "Password reset email sent",
-      description: "If your email exists in our system, you'll receive a password reset link.",
-    });
+    setIsLoading(true);
+    
+    try {
+      await resetPassword(email);
+      toast({
+        title: "Password reset email sent",
+        description: "If your email exists in our system, you'll receive a password reset link.",
+      });
+    } catch (error) {
+      // Error is already handled in the resetPassword function
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -42,6 +53,7 @@ const ForgotPasswordForm: React.FC<ForgotPasswordFormProps> = ({ onBackToLogin }
               onChange={(e) => setEmail(e.target.value)}
               className="rounded-md h-12"
               required
+              disabled={isLoading}
             />
           </div>
         </CardContent>
@@ -49,11 +61,17 @@ const ForgotPasswordForm: React.FC<ForgotPasswordFormProps> = ({ onBackToLogin }
           <Button 
             type="submit" 
             className="w-full bg-alike-teal hover:bg-alike-teal/90 text-white rounded-md h-12"
+            disabled={isLoading}
           >
-            Reset
+            {isLoading ? "Sending..." : "Reset"}
           </Button>
           <div className="mt-4 text-sm text-center text-muted-foreground">
-            <Button variant="link" onClick={onBackToLogin} className="p-0 text-alike-teal">
+            <Button 
+              variant="link" 
+              onClick={onBackToLogin} 
+              className="p-0 text-alike-teal"
+              disabled={isLoading}
+            >
               Back to login
             </Button>
           </div>

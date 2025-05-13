@@ -6,6 +6,7 @@ import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/components/ui/use-toast';
 import Logo from '../Logo';
+import { useAuth } from '@/context/AuthContext';
 
 interface SignupFormProps {
   onSwitchToLogin: () => void;
@@ -14,19 +15,48 @@ interface SignupFormProps {
 const SignupForm: React.FC<SignupFormProps> = ({ onSwitchToLogin }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [name, setName] = useState('');
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
   const [gender, setGender] = useState('');
   const [age, setAge] = useState('');
   const [state, setState] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  
   const { toast } = useToast();
+  const { signUp } = useAuth();
 
-  const handleSignup = (e: React.FormEvent) => {
+  const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
-    // This would connect to Supabase in a real implementation
-    toast({
-      title: "Sign-up attempt",
-      description: "In the full app, this would connect to Supabase authentication.",
-    });
+    setIsLoading(true);
+    
+    try {
+      if (parseInt(age) <= 0 || parseInt(age) > 120) {
+        throw new Error('Please enter a valid age');
+      }
+
+      const userData = {
+        first_name: firstName,
+        last_name: lastName,
+        gender,
+        age: parseInt(age),
+        state
+      };
+
+      await signUp(email, password, userData);
+      toast({
+        title: "Sign-up successful",
+        description: "Welcome to Alike! Please check your email to confirm your account.",
+      });
+      onSwitchToLogin();
+    } catch (error: any) {
+      toast({
+        title: "Sign-up error",
+        description: error.message || "An error occurred during sign up",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const usStates = [
@@ -58,6 +88,7 @@ const SignupForm: React.FC<SignupFormProps> = ({ onSwitchToLogin }) => {
               onChange={(e) => setEmail(e.target.value)}
               className="rounded-md h-12"
               required
+              disabled={isLoading}
             />
           </div>
           <div className="space-y-2">
@@ -68,21 +99,34 @@ const SignupForm: React.FC<SignupFormProps> = ({ onSwitchToLogin }) => {
               onChange={(e) => setPassword(e.target.value)}
               className="rounded-md h-12"
               required
+              disabled={isLoading}
+              minLength={6}
             />
           </div>
           <div className="space-y-2">
             <Input
               type="text"
-              placeholder="Full Name"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
+              placeholder="First Name"
+              value={firstName}
+              onChange={(e) => setFirstName(e.target.value)}
               className="rounded-md h-12"
               required
+              disabled={isLoading}
+            />
+          </div>
+          <div className="space-y-2">
+            <Input
+              type="text"
+              placeholder="Last Name"
+              value={lastName}
+              onChange={(e) => setLastName(e.target.value)}
+              className="rounded-md h-12"
+              disabled={isLoading}
             />
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Select value={gender} onValueChange={setGender}>
+              <Select value={gender} onValueChange={setGender} disabled={isLoading}>
                 <SelectTrigger className="rounded-md h-12">
                   <SelectValue placeholder="Gender" />
                 </SelectTrigger>
@@ -101,11 +145,14 @@ const SignupForm: React.FC<SignupFormProps> = ({ onSwitchToLogin }) => {
                 onChange={(e) => setAge(e.target.value)}
                 className="rounded-md h-12"
                 required
+                disabled={isLoading}
+                min={1}
+                max={120}
               />
             </div>
           </div>
           <div className="space-y-2">
-            <Select value={state} onValueChange={setState}>
+            <Select value={state} onValueChange={setState} disabled={isLoading}>
               <SelectTrigger className="rounded-md h-12">
                 <SelectValue placeholder="US State" />
               </SelectTrigger>
@@ -123,12 +170,18 @@ const SignupForm: React.FC<SignupFormProps> = ({ onSwitchToLogin }) => {
           <Button 
             type="submit" 
             className="w-full bg-alike-teal hover:bg-alike-teal/90 text-white rounded-md h-12"
+            disabled={isLoading}
           >
-            Sign up
+            {isLoading ? "Signing up..." : "Sign up"}
           </Button>
           <div className="mt-4 text-sm text-center text-muted-foreground">
             Already have an account?{" "}
-            <Button variant="link" onClick={onSwitchToLogin} className="p-0 text-alike-teal">
+            <Button 
+              variant="link" 
+              onClick={onSwitchToLogin} 
+              className="p-0 text-alike-teal"
+              disabled={isLoading}
+            >
               Log in
             </Button>
           </div>

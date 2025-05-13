@@ -68,8 +68,8 @@ const ResultsView: React.FC<ResultsViewProps> = ({ question, results, onViewGrou
                 <XAxis type="number" hide />
                 <YAxis type="category" dataKey="option" width={120} />
                 <Tooltip 
-                  formatter={(value, name, props) => [`${props.payload.percentage}%`, 'Percentage']} 
-                  labelFormatter={(value) => props.payload.option}
+                  formatter={(value, name, props) => [`${value}%`, 'Percentage']} 
+                  labelFormatter={(label) => label}
                 />
                 <Bar 
                   dataKey="percentage" 
