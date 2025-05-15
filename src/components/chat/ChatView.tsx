@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardFooter } from '@/components/ui/card';
@@ -130,15 +129,16 @@ const ChatView: React.FC<ChatViewProps> = ({ groupId, groupName, onBack }) => {
         .from('profiles')
         .select('id, first_name, last_name')
         .in('id', userIds);
-        
+      
       if (error) throw error;
       
       if (data) {
+        console.log('Fetched profiles:', data); // Debug log
         const profiles: Record<string, string> = {};
         data.forEach(profile => {
-          profiles[profile.id] = profile.first_name + (profile.last_name ? ` ${profile.last_name}` : '');
+          let fullName = ((profile.first_name || '') + (profile.last_name ? ` ${profile.last_name}` : '')).trim();
+          profiles[profile.id] = fullName || 'Unknown User';
         });
-        
         setUserProfiles(prevProfiles => ({
           ...prevProfiles,
           ...profiles

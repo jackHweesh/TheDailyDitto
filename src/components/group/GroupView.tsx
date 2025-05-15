@@ -1,15 +1,22 @@
-
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { 
+  Dialog, 
+  DialogContent, 
+  DialogHeader, 
+  DialogTitle, 
+  DialogTrigger,
+  DialogDescription,
+  DialogFooter 
+} from '@/components/ui/dialog';
 import { useToast } from '@/components/ui/use-toast';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/context/AuthContext';
 import { nanoid } from 'nanoid';
-import ChatView from '../chat/ChatView';
+import GroupResultsView from './GroupResultsView';
 
 interface Group {
   id: string;
@@ -20,16 +27,19 @@ interface Group {
 interface GroupViewProps {
   questionId: string;
   onBack: () => void;
+  options: string[];
+  questionText: string;
 }
 
-const GroupView: React.FC<GroupViewProps> = ({ questionId, onBack }) => {
+const GroupView: React.FC<GroupViewProps> = ({ questionId, onBack, options, questionText }) => {
   const [inviteCode, setInviteCode] = useState('');
   const [newGroupName, setNewGroupName] = useState('');
   const [groups, setGroups] = useState<Group[]>([]);
   const [activeGroup, setActiveGroup] = useState<Group | null>(null);
-  const [showChat, setShowChat] = useState(false);
+  const [showResults, setShowResults] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const [isChatLoading, setIsChatLoading] = useState(false);
+  const [isLeavingGroup, setIsLeavingGroup] = useState(false);
+  const [showLeaveConfirmation, setShowLeaveConfirmation] = useState(false);
   const { toast } = useToast();
   const { user } = useAuth();
 
@@ -255,27 +265,102 @@ const GroupView: React.FC<GroupViewProps> = ({ questionId, onBack }) => {
 
   const handleSelectGroup = (group: Group) => {
     setActiveGroup(group);
-    setShowChat(false);
   };
   
   const handleViewResults = async () => {
-    // TODO: Implement group results view
-    toast({
-      title: "Group results",
-      description: `Viewing results for "${activeGroup?.name}"`,
-    });
+    setShowResults(true);
   };
   
-  const handleViewChat = async () => {
-    setShowChat(true);
+  const openLeaveConfirmation = () => {
+    setShowLeaveConfirmation(true);
   };
   
-  if (showChat && activeGroup) {
+  const handleLeaveGroup = async () => {
+    if (!user || !activeGroup) return;
+    
+    setIsLeavingGroup(true);
+    setShowLeaveConfirmation(false);
+    
+    try {
+      // Find the membership record to delete
+      const { data: membership, error: membershipError } = await supabase
+        .from('group_members')
+        .select('id')
+        .eq('group_id', activeGroup.id)
+        .eq('user_id', user.id)
+        .single();
+      
+      if (membershipError) throw membershipError;
+      
+      if (membership) {
+        // Remove the user from the group
+        const { error: leaveError } = await supabase
+          .from('group_members')
+          .delete()
+          .eq('id', membership.id);
+        
+        if (leaveError) throw leaveError;
+        
+        // Check if the group is now empty
+        const { count, error: countError } = await supabase
+          .from('group_members')
+          .select('*', { count: 'exact', head: true })
+          .eq('group_id', activeGroup.id);
+        
+        if (countError) throw countError;
+        
+        // If group is empty, delete it and all related messages
+        if (count === 0) {
+          // Delete chat messages first
+          const { error: messagesError } = await supabase
+            .from('chat_messages')
+            .delete()
+            .eq('group_id', activeGroup.id);
+          
+          if (messagesError) throw messagesError;
+          
+          // Delete the group
+          const { error: groupError } = await supabase
+            .from('groups')
+            .delete()
+            .eq('id', activeGroup.id);
+          
+          if (groupError) throw groupError;
+          
+          toast({
+            title: "Group deleted",
+            description: `You were the last member, so the group "${activeGroup.name}" has been deleted`,
+          });
+        } else {
+          toast({
+            title: "Group left",
+            description: `You have left the group "${activeGroup.name}"`,
+          });
+        }
+        
+        // Reset active group
+        setActiveGroup(null);
+      }
+    } catch (error: any) {
+      toast({
+        title: "Error leaving group",
+        description: error.message || "Could not leave the group",
+        variant: "destructive"
+      });
+    } finally {
+      setIsLeavingGroup(false);
+    }
+  };
+  
+  if (showResults && activeGroup) {
     return (
-      <ChatView 
-        groupId={activeGroup.id} 
-        groupName={activeGroup.name} 
-        onBack={() => setShowChat(false)} 
+      <GroupResultsView
+        groupId={activeGroup.id}
+        groupName={activeGroup.name}
+        questionId={questionId}
+        onBack={() => setShowResults(false)}
+        options={options}
+        questionText={questionText}
       />
     );
   }
@@ -380,19 +465,56 @@ const GroupView: React.FC<GroupViewProps> = ({ questionId, onBack }) => {
         </ScrollArea>
         
         {activeGroup && (
-          <div className="flex space-x-2 mt-4">
+          <div className="flex mt-4">
             <Button
               onClick={handleViewResults}
-              className="flex-1 bg-alike-navy hover:bg-alike-navy/90 text-white"
+              className="w-full bg-alike-teal hover:bg-alike-teal/90 text-white"
             >
-              View Results
+              View Group Results & Chat
             </Button>
+          </div>
+        )}
+        
+        {activeGroup && (
+          <div className="mt-4">
             <Button
-              onClick={handleViewChat}
-              className="flex-1 bg-alike-teal hover:bg-alike-teal/90 text-white"
+              onClick={openLeaveConfirmation}
+              variant="outline"
+              className="w-full border-red-500 text-red-500 hover:bg-red-50"
             >
-              Open Chat
+              Leave Group
             </Button>
+            
+            <Dialog open={showLeaveConfirmation} onOpenChange={setShowLeaveConfirmation}>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Leave Group</DialogTitle>
+                  <DialogDescription>
+                    Are you sure you want to leave "{activeGroup.name}"?
+                    {activeGroup.memberCount <= 1 && (
+                      <p className="mt-2 text-red-500">
+                        You are the last member. This group will be permanently deleted if you leave.
+                      </p>
+                    )}
+                  </DialogDescription>
+                </DialogHeader>
+                <DialogFooter>
+                  <Button 
+                    variant="outline" 
+                    onClick={() => setShowLeaveConfirmation(false)}
+                  >
+                    Cancel
+                  </Button>
+                  <Button 
+                    variant="destructive"
+                    onClick={handleLeaveGroup}
+                    disabled={isLeavingGroup}
+                  >
+                    {isLeavingGroup ? "Leaving..." : "Leave Group"}
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
           </div>
         )}
       </CardContent>

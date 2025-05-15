@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Navigate, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -8,6 +7,7 @@ import GroupView from '@/components/group/GroupView';
 import { useToast } from '@/components/ui/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/context/AuthContext';
+import ProfileView from '@/components/profile/ProfileView';
 
 // Predefined colors for results visualization
 const RESULT_COLORS = [
@@ -21,7 +21,8 @@ const RESULT_COLORS = [
 enum DashboardView {
   QUESTION,
   RESULTS,
-  GROUPS
+  GROUPS,
+  PROFILE
 }
 
 const Dashboard: React.FC = () => {
@@ -30,6 +31,7 @@ const Dashboard: React.FC = () => {
   const [hasVoted, setHasVoted] = useState(false);
   const [results, setResults] = useState<Array<{ option: string; votes: number; percentage: number; color: string }>>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [resultsLoading, setResultsLoading] = useState(false);
   
   const { toast } = useToast();
   const { user, signOut } = useAuth();
@@ -40,58 +42,38 @@ const Dashboard: React.FC = () => {
     return <Navigate to="/auth" replace />;
   }
   
-  // Fetch today's question
+  // Fetch today's question (rotating from question bank)
   useEffect(() => {
-    const fetchQuestion = async () => {
+    const fetchQuestions = async () => {
       setIsLoading(true);
       try {
-        // Get today's question
-        const today = new Date().toISOString().split('T')[0];
-        const { data: questionData, error: questionError } = await supabase
+        // Fetch all questions from the bank
+        const { data: questionsData, error: questionsError } = await supabase
           .from('daily_questions')
           .select('id, question, options')
-          .eq('active_date', today)
-          .single();
-        
-        if (questionError) {
-          // If no question for today, use the most recent one
-          const { data: fallbackData, error: fallbackError } = await supabase
-            .from('daily_questions')
-            .select('id, question, options')
-            .order('active_date', { ascending: false })
-            .limit(1)
-            .single();
-            
-          if (fallbackError) throw fallbackError;
-          
-          if (fallbackData) {
-            const parsedOptions = typeof fallbackData.options === 'string' 
-              ? JSON.parse(fallbackData.options) 
-              : fallbackData.options;
-              
-            setQuestion({
-              id: fallbackData.id,
-              text: fallbackData.question,
-              options: Array.isArray(parsedOptions) ? parsedOptions : []
-            });
-            
-            // Check if user has voted for this fallback question
-            await checkUserVote(fallbackData.id);
-          }
-        } else {
-          const parsedOptions = typeof questionData.options === 'string' 
-            ? JSON.parse(questionData.options) 
-            : questionData.options;
-            
-          setQuestion({
-            id: questionData.id,
-            text: questionData.question,
-            options: Array.isArray(parsedOptions) ? parsedOptions : []
-          });
-          
-          // Check if user has voted
-          await checkUserVote(questionData.id);
-        }
+          .order('created_at', { ascending: true });
+
+        if (questionsError) throw questionsError;
+        if (!questionsData || questionsData.length === 0) throw new Error('No questions found');
+
+        // Determine which question to show today (local time)
+        const now = new Date();
+        const start = new Date(now.getFullYear(), 0, 0);
+        const diff = now.getTime() - start.getTime();
+        const oneDay = 1000 * 60 * 60 * 24;
+        const dayOfYear = Math.floor(diff / oneDay);
+        const questionIndex = dayOfYear % questionsData.length;
+        const todayQuestion = questionsData[questionIndex];
+        const parsedOptions = typeof todayQuestion.options === 'string'
+          ? JSON.parse(todayQuestion.options)
+          : todayQuestion.options;
+        setQuestion({
+          id: todayQuestion.id,
+          text: todayQuestion.question,
+          options: Array.isArray(parsedOptions) ? parsedOptions : []
+        });
+        // Check if user has voted for this question
+        await checkUserVote(todayQuestion.id);
       } catch (error: any) {
         toast({
           title: "Error loading question",
@@ -102,7 +84,6 @@ const Dashboard: React.FC = () => {
         setIsLoading(false);
       }
     };
-    
     const checkUserVote = async (questionId: string) => {
       if (user) {
         const { data: voteData, error: voteError } = await supabase
@@ -111,41 +92,64 @@ const Dashboard: React.FC = () => {
           .eq('question_id', questionId)
           .eq('user_id', user.id)
           .single();
-          
         if (voteData) {
           setHasVoted(true);
           await fetchResults(questionId);
+        } else {
+          setHasVoted(false);
         }
       }
     };
+    fetchQuestions();
+  }, [user, toast]);
+  
+  // Add a new useEffect for vote subscriptions
+  useEffect(() => {
+    if (!question || !question.id) return;
     
-    fetchQuestion();
-
-    // Subscribe to vote changes to update results in real-time
+    console.log("Setting up vote subscription for question:", question.id);
+    
+    // Add subscription for vote changes on this specific question
     const channel = supabase
-      .channel('votes-changes')
+      .channel(`votes-for-question-${question.id}`)
       .on(
         'postgres_changes',
         {
           event: '*',
           schema: 'public',
-          table: 'votes'
+          table: 'votes',
+          filter: `question_id=eq.${question.id}`
         },
         (payload) => {
-          if (question) {
+          console.log("Vote change detected:", payload);
+          // Add delay before fetching to allow Supabase to update
+          setTimeout(() => {
             fetchResults(question.id);
-          }
+          }, 750); // 750ms delay
         }
       )
-      .subscribe();
+      .subscribe((status) => {
+        console.log("Subscription status:", status);
+      });
+
+    // Set up periodic refresh (every 15 seconds)
+    const intervalId = setInterval(() => {
+      if ((view === DashboardView.RESULTS) && question) {
+        console.log("Periodic refresh of results");
+        fetchResults(question.id);
+      }
+    }, 15000);
 
     return () => {
+      clearInterval(intervalId);
       supabase.removeChannel(channel);
     };
-  }, [user, toast]);
+  }, [question, view]);
   
   // Fetch results when user has voted
   const fetchResults = async (questionId: string) => {
+    setResultsLoading(true);
+    
     try {
       // Get all votes for the question to calculate totals
       const { data: allVotesData, error: allVotesError } = await supabase
@@ -197,6 +201,8 @@ const Dashboard: React.FC = () => {
         description: error.message || "Could not load voting results",
         variant: "destructive"
       });
+    } finally {
+      setResultsLoading(false);
     }
   };
   
@@ -204,8 +210,12 @@ const Dashboard: React.FC = () => {
   const handleVoteSubmit = async (selectedOption: string) => {
     if (question) {
       setHasVoted(true);
-      await fetchResults(question.id);
-      setView(DashboardView.RESULTS);
+      setResultsLoading(true);
+      // Wait 750ms before fetching results to allow Supabase to update
+      setTimeout(async () => {
+        await fetchResults(question.id);
+        setView(DashboardView.RESULTS);
+      }, 750);
     }
   };
   
@@ -243,15 +253,13 @@ const Dashboard: React.FC = () => {
           </div>
         ) : view === DashboardView.QUESTION && question ? (
           hasVoted ? (
-            <div className="text-center mb-6">
-              <p className="text-muted-foreground">You've already voted today!</p>
-              <Button 
-                onClick={() => setView(DashboardView.RESULTS)}
-                className="bg-alike-teal hover:bg-alike-teal/90 text-white mt-2"
-              >
-                View Results
-              </Button>
-            </div>
+            <ResultsView
+              question={question.text}
+              results={results}
+              onViewGroups={() => setView(DashboardView.GROUPS)}
+              onProfile={() => setView(DashboardView.PROFILE)}
+              isLoading={resultsLoading}
+            />
           ) : (
             <QuestionOfDay 
               question={question.text}
@@ -265,12 +273,18 @@ const Dashboard: React.FC = () => {
             question={question.text}
             results={results}
             onViewGroups={() => setView(DashboardView.GROUPS)}
+            onProfile={() => setView(DashboardView.PROFILE)}
+            isLoading={resultsLoading}
           />
         ) : view === DashboardView.GROUPS && question ? (
           <GroupView 
             questionId={question.id}
             onBack={() => setView(DashboardView.RESULTS)}
+            options={question.options}
+            questionText={question.text}
           />
+        ) : view === DashboardView.PROFILE ? (
+          <ProfileView onBack={() => setView(DashboardView.RESULTS)} />
         ) : (
           <div className="text-center">
             <p className="text-muted-foreground">No active question found. Check back later!</p>

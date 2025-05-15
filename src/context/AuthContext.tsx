@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { Session, User } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
@@ -48,15 +47,22 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const signUp = async (email: string, password: string, userData: any) => {
     try {
-      const { error } = await supabase.auth.signUp({
+      const { data, error } = await supabase.auth.signUp({
         email,
         password,
         options: {
-          data: userData
+          data: userData // This will be available in raw_user_meta_data
         }
       });
+      
       if (error) throw error;
+
+      toast({
+        title: "Sign up successful",
+        description: "Please check your email to confirm your account.",
+      });
     } catch (error: any) {
+      console.error('Signup error:', error);
       toast({
         title: "Sign up error",
         description: error.message || "An error occurred during sign up",
