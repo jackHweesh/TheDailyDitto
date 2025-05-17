@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card';
@@ -86,9 +85,7 @@ const QuestionOfDay: React.FC<QuestionProps> = ({ question, options, questionId,
       <CardHeader className="space-y-1">
         <div className="flex items-center justify-between">
           <p className="text-sm text-muted-foreground">{currentDate}</p>
-          <div className="bg-alike-teal rounded-full px-3 py-1">
-            <span className="text-xs font-medium text-white">Question of the Day</span>
-          </div>
+          <span className="text-lg font-bold text-alike-navy">Question of the Day</span>
         </div>
         <h2 className="text-xl font-semibold text-alike-navy">{question}</h2>
       </CardHeader>

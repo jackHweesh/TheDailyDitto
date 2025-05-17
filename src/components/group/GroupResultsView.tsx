@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -11,6 +11,7 @@ import { PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, 
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
 import { format, isSameDay } from 'date-fns';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 
 interface GroupResultsViewProps {
   groupId: string;
@@ -19,6 +20,7 @@ interface GroupResultsViewProps {
   options: string[];
   groupName: string;
   questionText: string;
+  onViewMembers: () => void;
 }
 
 interface GroupResult {
@@ -50,7 +52,8 @@ const GroupResultsView: React.FC<GroupResultsViewProps> = ({
   onBack, 
   options,
   groupName,
-  questionText
+  questionText,
+  onViewMembers
 }) => {
   // Results state
   const [groupResults, setGroupResults] = useState<GroupResult[]>([]);
@@ -74,21 +77,67 @@ const GroupResultsView: React.FC<GroupResultsViewProps> = ({
   const [viewingQuestion, setViewingQuestion] = useState<any | null>(null);
   const [viewingResults, setViewingResults] = useState<GroupResult[]>([]);
   const [isHistorical, setIsHistorical] = useState(false);
+  const [pendingMembers, setPendingMembers] = useState<{ id: string; name: string }[]>([]);
+  const [isOwner, setIsOwner] = useState(false);
+  const [showPendingDialog, setShowPendingDialog] = useState(false);
+  const [pendingAction, setPendingAction] = useState<string | null>(null);
+
+  const fetchPendingRequests = useCallback(async () => {
+    if (!user) return;
+    // Get group owner
+    const { data: groupData } = await supabase
+      .from('groups')
+      .select('owner_id')
+      .eq('id', groupId)
+      .single();
+    const isUserOwner = groupData && user && groupData.owner_id === user.id;
+    setIsOwner(isUserOwner);
+    if (!isUserOwner) {
+      setShowPendingDialog(false);
+      setPendingMembers([]);
+      return;
+    }
+    // Get pending members
+    const { data: groupMembers } = await supabase
+      .from('group_members')
+      .select('user_id, status')
+      .eq('group_id', groupId);
+    const pendingIds = (groupMembers || []).filter(m => m.status === 'pending').map(m => m.user_id);
+    if (pendingIds.length === 0) {
+      setPendingMembers([]);
+      setShowPendingDialog(false);
+      return;
+    }
+    // Get names
+    const { data: profiles } = await supabase
+      .from('profiles')
+      .select('id, first_name, last_name')
+      .in('id', pendingIds);
+    const pending = (profiles || []).map(p => ({
+      id: p.id,
+      name: p.first_name + (p.last_name ? ` ${p.last_name}` : '')
+    }));
+    setPendingMembers(pending);
+    setShowPendingDialog(pending.length > 0);
+  }, [groupId, user]);
+
+  useEffect(() => {
+    fetchPendingRequests();
+    // eslint-disable-next-line
+  }, [fetchPendingRequests]);
 
   // Fetch group results and invite code
   useEffect(() => {
     const fetchGroupResultsAndInviteCode = async () => {
       setIsLoading(true);
       try {
-        // Fetch invite code
+        // Always fetch invite code for all users
         const { data: groupData, error: groupError } = await supabase
           .from('groups')
           .select('invite_code')
           .eq('id', groupId)
           .single();
-          
         if (groupError) throw groupError;
-        
         if (groupData) {
           setInviteCode(groupData.invite_code);
         }
@@ -334,11 +383,39 @@ const GroupResultsView: React.FC<GroupResultsViewProps> = ({
 
   const copyInviteCode = () => {
     if (inviteCode) {
-      navigator.clipboard.writeText(inviteCode);
-      toast({
-        title: "Invite code copied",
-        description: "You can now share it with friends",
-      });
+      console.log('Copy button clicked. Invite code:', inviteCode);
+      if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
+        navigator.clipboard.writeText(inviteCode).then(() => {
+          toast({
+            title: "Invite code copied",
+            description: "You can now share it with friends",
+          });
+        }).catch(() => {
+          // Fallback for clipboard API issues
+          const tempInput = document.createElement('input');
+          tempInput.value = inviteCode;
+          document.body.appendChild(tempInput);
+          tempInput.select();
+          document.execCommand('copy');
+          document.body.removeChild(tempInput);
+          toast({
+            title: "Invite code copied",
+            description: "You can now share it with friends",
+          });
+        });
+      } else {
+        // Fallback for environments without navigator.clipboard
+        const tempInput = document.createElement('input');
+        tempInput.value = inviteCode;
+        document.body.appendChild(tempInput);
+        tempInput.select();
+        document.execCommand('copy');
+        document.body.removeChild(tempInput);
+        toast({
+          title: "Invite code copied",
+          description: "You can now share it with friends",
+        });
+      }
     }
   };
 
@@ -376,22 +453,34 @@ const GroupResultsView: React.FC<GroupResultsViewProps> = ({
     (async () => {
       const { data } = await supabase
         .from('daily_questions')
-        .select('id, question, options, created_at');
+        .select('id, question, options, active_date');
       if (data) setAllQuestions(data);
     })();
   }, []);
 
+  function toLocalDateOnly(dateString) {
+    // Parse as local date (YYYY-MM-DD is treated as local midnight)
+    const d = new Date(dateString + 'T00:00:00');
+    return new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  }
+
   useEffect(() => {
     if (!selectedDate) return;
-    // Find which question would be shown on this date
-    const sorted = [...allQuestions].sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
-    const start = new Date(selectedDate.getFullYear(), 0, 0);
-    const diff = selectedDate.getTime() - start.getTime();
-    const oneDay = 1000 * 60 * 60 * 24;
-    const dayOfYear = Math.floor(diff / oneDay);
-    const questionIndex = dayOfYear % sorted.length;
-    const q = sorted[questionIndex];
+    // Find the question with active_date matching selectedDate (local time)
+    const q = allQuestions.find(q => {
+      const qDate = toLocalDateOnly(q.active_date);
+      return (
+        qDate.getFullYear() === selectedDate.getFullYear() &&
+        qDate.getMonth() === selectedDate.getMonth() &&
+        qDate.getDate() === selectedDate.getDate()
+      );
+    });
     setViewingQuestion(q);
+    if (!q) {
+      setViewingResults([]);
+      setIsHistorical(true);
+      return;
+    }
     // Fetch group results for this question
     (async () => {
       // Get all members of the group
@@ -445,20 +534,62 @@ const GroupResultsView: React.FC<GroupResultsViewProps> = ({
     })();
   }, [selectedDate, allQuestions, groupId]);
 
+  // Only enable dates that have a question (by active_date)
+  const today = new Date();
+  today.setHours(0, 0, 0, 0); // local midnight
+  const availableDates = allQuestions
+    .map(q => toLocalDateOnly(q.active_date))
+    .filter(d => d <= today);
+  const minDate = availableDates.length > 0 ? availableDates[0] : undefined;
+  const maxDate = today; // always allow today if it's available
+
   const currentDate = selectedDate
     ? format(selectedDate, 'MMMM d, yyyy')
     : new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
 
-  const minDate = allQuestions.length > 0 ? new Date(allQuestions[0].created_at) : undefined;
-  const maxDate = new Date();
-  const availableDates = [];
-  if (minDate) {
-    let d = new Date(minDate);
-    while (d <= maxDate) {
-      availableDates.push(new Date(d));
-      d.setDate(d.getDate() + 1);
+  const handleApprove = async (memberId: string) => {
+    setPendingAction(memberId + '-approve');
+    console.log('Approving member:', { groupId, memberId });
+    const { data, error } = await supabase
+      .from('group_members')
+      .update({ status: 'member' })
+      .eq('group_id', groupId)
+      .eq('user_id', memberId)
+      .select(); // Get affected rows
+    setPendingAction(null);
+    console.log('Approve result:', { data, error });
+    if (error) {
+      toast({ title: 'Error', description: error.message, variant: 'destructive' });
+      return;
     }
-  }
+    if (!data || data.length === 0) {
+      toast({ title: 'No rows updated', description: 'No group member was updated. Check group_id and user_id.', variant: 'destructive' });
+      return;
+    }
+    await fetchPendingRequests();
+  };
+
+  const handleReject = async (memberId: string) => {
+    setPendingAction(memberId + '-reject');
+    console.log('Rejecting member:', { groupId, memberId });
+    const { data, error } = await supabase
+      .from('group_members')
+      .delete()
+      .eq('group_id', groupId)
+      .eq('user_id', memberId)
+      .select(); // Get affected rows
+    setPendingAction(null);
+    console.log('Reject result:', { data, error });
+    if (error) {
+      toast({ title: 'Error', description: error.message, variant: 'destructive' });
+      return;
+    }
+    if (!data || data.length === 0) {
+      toast({ title: 'No rows deleted', description: 'No group member was deleted. Check group_id and user_id.', variant: 'destructive' });
+      return;
+    }
+    await fetchPendingRequests();
+  };
 
   return (
     <Card className="w-full max-w-3xl mx-auto shadow-lg border-0 animate-fade-in">
@@ -474,11 +605,15 @@ const GroupResultsView: React.FC<GroupResultsViewProps> = ({
             <PopoverContent align="start" className="w-auto p-0">
               <Calendar
                 mode="single"
-                selected={selectedDate || new Date()}
+                selected={selectedDate || today}
                 onSelect={setSelectedDate}
                 fromDate={minDate}
                 toDate={maxDate}
-                disabled={(date) => false}
+                disabled={(date) => !availableDates.some(d =>
+                  d.getFullYear() === date.getFullYear() &&
+                  d.getMonth() === date.getMonth() &&
+                  d.getDate() === date.getDate()
+                )}
                 modifiers={{
                   available: availableDates,
                 }}
@@ -512,7 +647,9 @@ const GroupResultsView: React.FC<GroupResultsViewProps> = ({
           </Button>
           <h2 className="text-xl font-semibold text-alike-navy flex items-center">
             {groupName}
-            <Users className="ml-2" size={24} color="#4FD1C5" />
+            <button onClick={onViewMembers} className="ml-2 p-0 bg-transparent border-0 cursor-pointer" title="View group members">
+              <Users size={24} color="#4FD1C5" />
+            </button>
           </h2>
         </div>
         {/* Third row: question text */}
@@ -651,6 +788,48 @@ const GroupResultsView: React.FC<GroupResultsViewProps> = ({
               </form>
             </div>
           </div>
+        )}
+        {/* Pending Requests Popup for Owners */}
+        {isOwner && showPendingDialog && (
+          <Dialog open={showPendingDialog} onOpenChange={setShowPendingDialog}>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Pending Join Requests</DialogTitle>
+              </DialogHeader>
+              {pendingMembers.length === 0 ? (
+                <p className="text-muted-foreground">No pending requests.</p>
+              ) : (
+                <ul className="divide-y mb-4">
+                  {pendingMembers.map((m) => (
+                    <li key={m.id} className="py-3 flex items-center justify-between">
+                      <span className="font-medium text-alike-navy">{m.name}</span>
+                      <div className="flex gap-2">
+                        <Button
+                          size="sm"
+                          className="bg-alike-teal text-white hover:bg-alike-teal/90"
+                          disabled={pendingAction === m.id + '-approve'}
+                          onClick={() => handleApprove(m.id)}
+                        >
+                          {pendingAction === m.id + '-approve' ? 'Approving...' : 'Approve'}
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="destructive"
+                          disabled={pendingAction === m.id + '-reject'}
+                          onClick={() => handleReject(m.id)}
+                        >
+                          {pendingAction === m.id + '-reject' ? 'Rejecting...' : 'Reject'}
+                        </Button>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              )}
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setShowPendingDialog(false)}>Close</Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
         )}
       </CardContent>
     </Card>

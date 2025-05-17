@@ -1,7 +1,7 @@
 import React from 'react';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip } from 'recharts';
+import { Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis } from 'recharts';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
 import { format, parse, isSameDay } from 'date-fns';
@@ -16,16 +16,16 @@ interface ResultsViewProps {
     color: string;
   }>;
   onViewGroups: () => void;
-  onProfile: () => void;
   isLoading?: boolean;
+  onRefresh: () => void;
 }
 
 const ResultsView: React.FC<ResultsViewProps> = ({ 
   question, 
   results, 
   onViewGroups,
-  onProfile,
-  isLoading = false 
+  isLoading = false,
+  onRefresh
 }) => {
   const [showCalendar, setShowCalendar] = React.useState(false);
   const [allQuestions, setAllQuestions] = React.useState<any[]>([]);
@@ -39,21 +39,32 @@ const ResultsView: React.FC<ResultsViewProps> = ({
     (async () => {
       const { data } = await supabase
         .from('daily_questions')
-        .select('id, question, options, created_at');
+        .select('id, question, options, active_date');
       if (data) setAllQuestions(data);
     })();
   }, []);
 
   React.useEffect(() => {
     if (!selectedDate) return;
-    // Find which question would be shown on this date
-    const sorted = [...allQuestions].sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
-    const start = new Date(selectedDate.getFullYear(), 0, 0);
-    const diff = selectedDate.getTime() - start.getTime();
-    const oneDay = 1000 * 60 * 60 * 24;
-    const dayOfYear = Math.floor(diff / oneDay);
-    const questionIndex = dayOfYear % sorted.length;
-    const q = sorted[questionIndex];
+    // Find the question with active_date matching selectedDate (local time)
+    const yyyy = selectedDate.getFullYear();
+    const mm = String(selectedDate.getMonth() + 1).padStart(2, '0');
+    const dd = String(selectedDate.getDate()).padStart(2, '0');
+    const dateStr = `${yyyy}-${mm}-${dd}`;
+    const q = allQuestions.find(q => {
+      const qDate = toLocalDateOnly(q.active_date);
+      return (
+        qDate.getFullYear() === selectedDate.getFullYear() &&
+        qDate.getMonth() === selectedDate.getMonth() &&
+        qDate.getDate() === selectedDate.getDate()
+      );
+    });
+    if (selectedDate && selectedDate > new Date()) {
+      setViewingQuestion(null);
+      setViewingResults([]);
+      setIsHistorical(true);
+      return;
+    }
     setViewingQuestion(q);
     // Fetch results for this question
     (async () => {
@@ -84,22 +95,27 @@ const ResultsView: React.FC<ResultsViewProps> = ({
     ? format(selectedDate, 'MMMM d, yyyy')
     : new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
 
-  // Only enable dates that have a question (simulate all days since first question)
-  const minDate = allQuestions.length > 0 ? new Date(allQuestions[0].created_at) : undefined;
-  const maxDate = new Date();
-  const availableDates = [];
-  if (minDate) {
-    let d = new Date(minDate);
-    while (d <= maxDate) {
-      availableDates.push(new Date(d));
-      d.setDate(d.getDate() + 1);
-    }
+  // Only enable dates that have a question (by active_date)
+  function toLocalDateOnly(dateString) {
+    // Parse as local date (YYYY-MM-DD is treated as local midnight)
+    const d = new Date(dateString + 'T00:00:00');
+    return new Date(d.getFullYear(), d.getMonth(), d.getDate());
   }
+  const today = new Date();
+  today.setHours(0, 0, 0, 0); // local midnight
+  const availableDates = allQuestions
+    .map(q => toLocalDateOnly(q.active_date))
+    .filter(d => d <= today);
+  const minDate = availableDates.length > 0 ? availableDates[0] : undefined;
+  const maxDate = today; // always allow today if it's available
 
   // Make sure we always have data to display
   const resultsWithData = results.length === 0 
     ? [{ option: 'No votes yet', votes: 0, percentage: 0, color: '#cccccc' }] 
     : results;
+
+  // Use viewingResults for historical, results for today
+  const resultsToShow = isHistorical ? viewingResults : resultsWithData;
 
   return (
     <Card className="w-full max-w-md mx-auto shadow-lg border-0 animate-fade-in">
@@ -114,11 +130,15 @@ const ResultsView: React.FC<ResultsViewProps> = ({
             <PopoverContent align="start" className="w-auto p-0">
               <Calendar
                 mode="single"
-                selected={selectedDate || new Date()}
+                selected={selectedDate || today}
                 onSelect={setSelectedDate}
                 fromDate={minDate}
                 toDate={maxDate}
-                disabled={(date) => false}
+                disabled={(date) => !availableDates.some(d =>
+                  d.getFullYear() === date.getFullYear() &&
+                  d.getMonth() === date.getMonth() &&
+                  d.getDate() === date.getDate()
+                )}
                 modifiers={{
                   available: availableDates,
                 }}
@@ -128,8 +148,8 @@ const ResultsView: React.FC<ResultsViewProps> = ({
               />
             </PopoverContent>
           </Popover>
-          <div className="bg-alike-teal rounded-full px-3 py-1 cursor-pointer" onClick={onProfile}>
-            <span className="text-xs font-medium text-white">Profile</span>
+          <div className="flex items-center gap-2">
+            <Button size="sm" variant="outline" onClick={onRefresh} className="h-8 px-3 text-xs">Refresh</Button>
           </div>
         </div>
         <h2 className="text-xl font-semibold text-alike-navy">Global Results</h2>
@@ -138,23 +158,19 @@ const ResultsView: React.FC<ResultsViewProps> = ({
       <CardContent className="space-y-4">
         {isLoading ? (
           <div className="flex justify-center items-center h-64">
-            <p className="text-muted-foreground">Updating results...</p>
+            <p className="text-muted-foreground">Loading results...</p>
           </div>
         ) : (
           <>
             <div className="h-64 w-full">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart
-                  data={isHistorical ? viewingResults : resultsWithData}
+                  data={resultsToShow}
                   layout="vertical"
                   margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
                 >
                   <XAxis type="number" hide />
                   <YAxis type="category" dataKey="option" width={120} />
-                  <Tooltip 
-                    formatter={(value, name, props) => [`${value}%`, 'Percentage']} 
-                    labelFormatter={(label) => label}
-                  />
                   <Bar 
                     dataKey="percentage" 
                     radius={[0, 4, 4, 0]}
@@ -163,35 +179,21 @@ const ResultsView: React.FC<ResultsViewProps> = ({
                       formatter: (value) => `${value}%`
                     }}
                   >
-                    {(isHistorical ? viewingResults : resultsWithData).map((entry, index) => (
+                    {resultsToShow.map((entry, index) => (
                       <Cell key={`bar-cell-${index}`} fill={entry.color} />
                     ))}
                   </Bar>
                 </BarChart>
               </ResponsiveContainer>
             </div>
-            <div className="flex flex-col space-y-2">
-              {(isHistorical ? viewingResults : resultsWithData).map((result, index) => (
-                <div key={index} className="flex items-center justify-between">
-                  <div className="flex items-center space-x-2">
-                    <div 
-                      className="w-3 h-3 rounded-full" 
-                      style={{ backgroundColor: result.color }}
-                    ></div>
-                    <span className="text-sm">{result.option}</span>
-                  </div>
-                  <span className="text-sm font-medium">{result.percentage}%</span>
-                </div>
-              ))}
-            </div>
+            <Button 
+              onClick={onViewGroups}
+              className="w-full bg-alike-navy hover:bg-alike-navy/90 text-white rounded-md h-12 mt-4"
+            >
+              View My Groups
+            </Button>
           </>
         )}
-        <Button 
-          onClick={onViewGroups}
-          className="w-full bg-alike-navy hover:bg-alike-navy/90 text-white rounded-md h-12 mt-4"
-        >
-          View My Groups
-        </Button>
       </CardContent>
     </Card>
   );

@@ -1,4 +1,3 @@
-
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -9,6 +8,11 @@ import Index from "./pages/Index";
 import Auth from "./pages/Auth";
 import Dashboard from "./pages/Dashboard";
 import NotFound from "./pages/NotFound";
+import ResetPasswordForm from "@/components/auth/ResetPasswordForm";
+import PrivacyPolicy from "./pages/PrivacyPolicy";
+import TermsOfService from "./pages/TermsOfService";
+import Contact from "./pages/Contact";
+import HowToPlay from "./pages/HowToPlay";
 
 const queryClient = new QueryClient();
 
@@ -20,8 +24,13 @@ const App = () => (
         <Sonner />
         <BrowserRouter>
           <Routes>
-            <Route path="/" element={<Dashboard />} />
+            <Route path="/reset-password" element={<ResetPasswordForm />} />
             <Route path="/auth" element={<Auth />} />
+            <Route path="/" element={<Dashboard />} />
+            <Route path="/privacy-policy" element={<PrivacyPolicy />} />
+            <Route path="/terms-of-service" element={<TermsOfService />} />
+            <Route path="/contact" element={<Contact />} />
+            <Route path="/how-to-play" element={<HowToPlay />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>

@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Navigate, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
+import { GearIcon } from '@/components/ui/button';
 import QuestionOfDay from '@/components/poll/QuestionOfDay';
 import ResultsView from '@/components/poll/ResultsView';
 import GroupView from '@/components/group/GroupView';
@@ -8,6 +9,8 @@ import { useToast } from '@/components/ui/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/context/AuthContext';
 import ProfileView from '@/components/profile/ProfileView';
+import Logo from '@/components/Logo';
+import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from '@/components/ui/dropdown-menu';
 
 // Predefined colors for results visualization
 const RESULT_COLORS = [
@@ -37,6 +40,8 @@ const Dashboard: React.FC = () => {
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
   
+  const latestQuestionId = useRef<string | null>(null);
+  
   // Redirect to auth if not signed in
   if (!user) {
     return <Navigate to="/auth" replace />;
@@ -47,33 +52,38 @@ const Dashboard: React.FC = () => {
     const fetchQuestions = async () => {
       setIsLoading(true);
       try {
-        // Fetch all questions from the bank
+        // Get today's date in local timezone as YYYY-MM-DD
+        const now = new Date();
+        const yyyy = now.getFullYear();
+        const mm = String(now.getMonth() + 1).padStart(2, '0');
+        const dd = String(now.getDate()).padStart(2, '0');
+        const todayStr = `${yyyy}-${mm}-${dd}`;
+        // Fetch the question for today
         const { data: questionsData, error: questionsError } = await supabase
           .from('daily_questions')
-          .select('id, question, options')
-          .order('created_at', { ascending: true });
-
-        if (questionsError) throw questionsError;
-        if (!questionsData || questionsData.length === 0) throw new Error('No questions found');
-
-        // Determine which question to show today (local time)
-        const now = new Date();
-        const start = new Date(now.getFullYear(), 0, 0);
-        const diff = now.getTime() - start.getTime();
-        const oneDay = 1000 * 60 * 60 * 24;
-        const dayOfYear = Math.floor(diff / oneDay);
-        const questionIndex = dayOfYear % questionsData.length;
-        const todayQuestion = questionsData[questionIndex];
-        const parsedOptions = typeof todayQuestion.options === 'string'
-          ? JSON.parse(todayQuestion.options)
-          : todayQuestion.options;
+          .select('id, question, options, active_date')
+          .eq('active_date', todayStr)
+          .single();
+        if (questionsError && questionsError.code !== 'PGRST116') throw questionsError;
+        if (!questionsData) {
+          setQuestion(null);
+          setHasVoted(false);
+          setResults([]);
+          return;
+        }
+        const parsedOptions = typeof questionsData.options === 'string'
+          ? JSON.parse(questionsData.options)
+          : questionsData.options;
         setQuestion({
-          id: todayQuestion.id,
-          text: todayQuestion.question,
+          id: questionsData.id,
+          text: questionsData.question,
           options: Array.isArray(parsedOptions) ? parsedOptions : []
         });
+        latestQuestionId.current = questionsData.id;
         // Check if user has voted for this question
-        await checkUserVote(todayQuestion.id);
+        await checkUserVote(questionsData.id);
+        // Always fetch results for the question
+        await fetchResults(questionsData.id);
       } catch (error: any) {
         toast({
           title: "Error loading question",
@@ -94,7 +104,7 @@ const Dashboard: React.FC = () => {
           .single();
         if (voteData) {
           setHasVoted(true);
-          await fetchResults(questionId);
+          setView(DashboardView.RESULTS);
         } else {
           setHasVoted(false);
         }
@@ -103,71 +113,24 @@ const Dashboard: React.FC = () => {
     fetchQuestions();
   }, [user, toast]);
   
-  // Add a new useEffect for vote subscriptions
-  useEffect(() => {
-    if (!question || !question.id) return;
-    
-    console.log("Setting up vote subscription for question:", question.id);
-    
-    // Add subscription for vote changes on this specific question
-    const channel = supabase
-      .channel(`votes-for-question-${question.id}`)
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'votes',
-          filter: `question_id=eq.${question.id}`
-        },
-        (payload) => {
-          console.log("Vote change detected:", payload);
-          // Add delay before fetching to allow Supabase to update
-          setTimeout(() => {
-            fetchResults(question.id);
-          }, 750); // 750ms delay
-        }
-      )
-      .subscribe((status) => {
-        console.log("Subscription status:", status);
-      });
-
-    // Set up periodic refresh (every 15 seconds)
-    const intervalId = setInterval(() => {
-      if ((view === DashboardView.RESULTS) && question) {
-        console.log("Periodic refresh of results");
-        fetchResults(question.id);
-      }
-    }, 15000);
-
-    return () => {
-      clearInterval(intervalId);
-      supabase.removeChannel(channel);
-    };
-  }, [question, view]);
-  
-  // Fetch results when user has voted
+  // Fetch results when user has voted or on refresh
   const fetchResults = async (questionId: string) => {
     setResultsLoading(true);
-    
     try {
       // Get all votes for the question to calculate totals
       const { data: allVotesData, error: allVotesError } = await supabase
         .from('votes')
         .select('selected_option')
         .eq('question_id', questionId);
-        
       if (allVotesError) throw allVotesError;
-      
       // Count votes for each option
       const voteCounts: Record<string, number> = {};
-      if (question) {
+      if (question && question.id === questionId) {
         // Initialize all options with zero votes
         question.options.forEach(option => {
           voteCounts[option] = 0;
         });
       }
-      
       // Count actual votes
       if (allVotesData && allVotesData.length > 0) {
         allVotesData.forEach(vote => {
@@ -175,16 +138,13 @@ const Dashboard: React.FC = () => {
           voteCounts[option] = (voteCounts[option] || 0) + 1;
         });
       }
-      
       // Calculate total votes
       const totalVotes = Object.values(voteCounts).reduce((sum, count) => sum + count, 0);
-      
       // Format results
-      if (question) {
+      if (question && question.id === questionId) {
         const formattedResults = question.options.map((option, index) => {
           const votes = voteCounts[option] || 0;
           const percentage = totalVotes > 0 ? Math.round((votes / totalVotes) * 100) : 0;
-          
           return {
             option,
             votes,
@@ -192,7 +152,6 @@ const Dashboard: React.FC = () => {
             color: RESULT_COLORS[index % RESULT_COLORS.length]
           };
         });
-        
         setResults(formattedResults);
       }
     } catch (error: any) {
@@ -211,11 +170,8 @@ const Dashboard: React.FC = () => {
     if (question) {
       setHasVoted(true);
       setResultsLoading(true);
-      // Wait 750ms before fetching results to allow Supabase to update
-      setTimeout(async () => {
-        await fetchResults(question.id);
-        setView(DashboardView.RESULTS);
-      }, 750);
+      await fetchResults(question.id);
+      setView(DashboardView.RESULTS);
     }
   };
   
@@ -228,20 +184,49 @@ const Dashboard: React.FC = () => {
     }
   };
   
+  // Auto-refresh results when entering the RESULTS view
+  useEffect(() => {
+    if (view === DashboardView.RESULTS && latestQuestionId.current) {
+      fetchResults(latestQuestionId.current);
+    }
+    // Only run when view or question changes
+  }, [view, question]);
+  
   return (
     <div className="flex flex-col min-h-screen bg-gray-50">
       {/* Header */}
       <header className="bg-white shadow">
-        <div className="max-w-7xl mx-auto px-4 py-3 sm:px-6 flex items-center justify-between">
-          <h1 className="text-xl font-bold text-alike-navy">Alike</h1>
-          <Button 
-            variant="ghost" 
-            size="sm" 
-            onClick={handleSignOut}
-            className="text-gray-500 hover:text-gray-700"
-          >
-            Log out
-          </Button>
+        <div className="max-w-7xl mx-auto px-4 py-2 sm:px-6 flex items-center justify-between">
+          <Logo />
+          <div className="flex items-center gap-2">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  aria-label="Settings"
+                  className="text-gray-500 hover:text-gray-700 text-2xl h-8 w-8"
+                >
+                  <GearIcon className="w-full h-full" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={() => setView(DashboardView.PROFILE)}>Profile</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => navigate('/how-to-play')}>How to Play</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => navigate('/contact')}>Contact Us</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => navigate('/privacy-policy')}>Privacy Policy</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => navigate('/terms-of-service')}>Terms of Service</DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleSignOut}
+              className="text-gray-500 hover:text-gray-700 text-xl h-12 px-6"
+            >
+              Log out
+            </Button>
+          </div>
         </div>
       </header>
       
@@ -257,8 +242,8 @@ const Dashboard: React.FC = () => {
               question={question.text}
               results={results}
               onViewGroups={() => setView(DashboardView.GROUPS)}
-              onProfile={() => setView(DashboardView.PROFILE)}
               isLoading={resultsLoading}
+              onRefresh={() => fetchResults(question.id)}
             />
           ) : (
             <QuestionOfDay 
@@ -273,8 +258,8 @@ const Dashboard: React.FC = () => {
             question={question.text}
             results={results}
             onViewGroups={() => setView(DashboardView.GROUPS)}
-            onProfile={() => setView(DashboardView.PROFILE)}
             isLoading={resultsLoading}
+            onRefresh={() => fetchResults(question.id)}
           />
         ) : view === DashboardView.GROUPS && question ? (
           <GroupView 
@@ -295,7 +280,7 @@ const Dashboard: React.FC = () => {
       {/* Footer */}
       <footer className="bg-white border-t">
         <div className="max-w-7xl mx-auto px-4 py-4 sm:px-6 text-center">
-          <p className="text-sm text-muted-foreground">© {new Date().getFullYear()} Alike. All rights reserved.</p>
+          <p className="text-sm text-muted-foreground">© {new Date().getFullYear()} TheOfficialDitto. All rights reserved.</p>
         </div>
       </footer>
     </div>

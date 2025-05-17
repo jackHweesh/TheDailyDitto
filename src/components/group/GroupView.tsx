@@ -17,11 +17,14 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/context/AuthContext';
 import { nanoid } from 'nanoid';
 import GroupResultsView from './GroupResultsView';
+import GroupMembersPage from './GroupMembersPage';
 
 interface Group {
   id: string;
   name: string;
   memberCount: number;
+  status: string;
+  owner_id: string;
 }
 
 interface GroupViewProps {
@@ -40,6 +43,7 @@ const GroupView: React.FC<GroupViewProps> = ({ questionId, onBack, options, ques
   const [isLoading, setIsLoading] = useState(false);
   const [isLeavingGroup, setIsLeavingGroup] = useState(false);
   const [showLeaveConfirmation, setShowLeaveConfirmation] = useState(false);
+  const [showMembers, setShowMembers] = useState(false);
   const { toast } = useToast();
   const { user } = useAuth();
 
@@ -53,7 +57,7 @@ const GroupView: React.FC<GroupViewProps> = ({ questionId, onBack, options, ques
         // Get groups that the user is a member of
         const { data: membershipData, error: membershipError } = await supabase
           .from('group_members')
-          .select('group_id')
+          .select('group_id, status')
           .eq('user_id', user.id);
         
         if (membershipError) throw membershipError;
@@ -63,7 +67,7 @@ const GroupView: React.FC<GroupViewProps> = ({ questionId, onBack, options, ques
           const groupIds = membershipData.map(item => item.group_id);
           const { data: groupsData, error: groupsError } = await supabase
             .from('groups')
-            .select('id, name')
+            .select('id, name, owner_id')
             .in('id', groupIds);
           
           if (groupsError) throw groupsError;
@@ -77,10 +81,15 @@ const GroupView: React.FC<GroupViewProps> = ({ questionId, onBack, options, ques
                   .select('*', { count: 'exact', head: true })
                   .eq('group_id', group.id);
                 
+                // Find this user's membership status
+                const membership = membershipData.find(m => m.group_id === group.id);
+                
                 return {
                   id: group.id,
                   name: group.name,
-                  memberCount: count || 0
+                  memberCount: count || 0,
+                  status: membership?.status || 'pending',
+                  owner_id: group.owner_id
                 };
               })
             );
@@ -146,7 +155,7 @@ const GroupView: React.FC<GroupViewProps> = ({ questionId, onBack, options, ques
       // Find group with invite code
       const { data: groupData, error: groupError } = await supabase
         .from('groups')
-        .select('id, name')
+        .select('id, name, owner_id')
         .eq('invite_code', inviteCode.trim())
         .single();
       
@@ -159,38 +168,57 @@ const GroupView: React.FC<GroupViewProps> = ({ questionId, onBack, options, ques
         return;
       }
       
-      // Check if already a member
+      // Check if already a member or pending
       const { data: existingMember, error: memberError } = await supabase
         .from('group_members')
-        .select('id')
+        .select('id, status')
         .eq('group_id', groupData.id)
         .eq('user_id', user.id)
         .single();
       
       if (existingMember) {
-        toast({
-          title: "Already a member",
-          description: "You are already a member of this group",
-          variant: "default" // Changed from "info" to "default"
-        });
+        if (existingMember.status === 'pending') {
+          toast({
+            title: "Request pending",
+            description: "Your request to join this group is pending approval from the owner.",
+            variant: "default"
+          });
+        } else {
+          toast({
+            title: "Already a member",
+            description: "You are already a member of this group",
+            variant: "default"
+          });
+        }
         setInviteCode('');
         return;
       }
       
-      // Join the group
+      // Determine status
+      const status = groupData.owner_id === user.id ? 'owner' : 'pending';
+      
+      // Join the group with appropriate status
       const { error: joinError } = await supabase
         .from('group_members')
         .insert({
           group_id: groupData.id,
-          user_id: user.id
+          user_id: user.id,
+          status
         });
       
       if (joinError) throw joinError;
       
-      toast({
-        title: "Group joined",
-        description: `You have successfully joined "${groupData.name}"`,
-      });
+      if (status === 'pending') {
+        toast({
+          title: "Request sent",
+          description: "Your request to join this group is pending approval from the owner.",
+        });
+      } else {
+        toast({
+          title: "Group joined",
+          description: `You have successfully joined "${groupData.name}"`,
+        });
+      }
       
       setInviteCode('');
     } catch (error: any) {
@@ -231,19 +259,21 @@ const GroupView: React.FC<GroupViewProps> = ({ questionId, onBack, options, ques
         .insert({
           name: newGroupName.trim(),
           invite_code: inviteCode,
-          created_by: user.id
+          created_by: user.id,
+          owner_id: user.id
         })
         .select()
         .single();
       
       if (groupError) throw groupError;
       
-      // Add creator to the group
+      // Add creator to the group as owner
       const { error: memberError } = await supabase
         .from('group_members')
         .insert({
           group_id: groupData.id,
-          user_id: user.id
+          user_id: user.id,
+          status: 'owner'
         });
       
       if (memberError) throw memberError;
@@ -264,6 +294,15 @@ const GroupView: React.FC<GroupViewProps> = ({ questionId, onBack, options, ques
   };
 
   const handleSelectGroup = (group: Group) => {
+    // Only allow access if user is a member or owner
+    if (group.status === 'pending') {
+      toast({
+        title: "Access Denied",
+        description: "Your request to join this group is pending approval from the owner.",
+        variant: "default"
+      });
+      return;
+    }
     setActiveGroup(group);
   };
   
@@ -352,6 +391,16 @@ const GroupView: React.FC<GroupViewProps> = ({ questionId, onBack, options, ques
     }
   };
   
+  if (showMembers && activeGroup) {
+    return (
+      <GroupMembersPage
+        groupId={activeGroup.id}
+        groupName={activeGroup.name}
+        onBack={() => setShowMembers(false)}
+      />
+    );
+  }
+
   if (showResults && activeGroup) {
     return (
       <GroupResultsView
@@ -361,6 +410,7 @@ const GroupView: React.FC<GroupViewProps> = ({ questionId, onBack, options, ques
         onBack={() => setShowResults(false)}
         options={options}
         questionText={questionText}
+        onViewMembers={() => setShowMembers(true)}
       />
     );
   }
@@ -450,7 +500,11 @@ const GroupView: React.FC<GroupViewProps> = ({ questionId, onBack, options, ques
                   onClick={() => handleSelectGroup(group)}
                 >
                   <div>
-                    <p className={`font-medium ${activeGroup?.id === group.id ? 'text-white' : 'text-alike-navy'}`}>{group.name}</p>
+                    <p className={`font-medium ${activeGroup?.id === group.id ? 'text-white' : 'text-alike-navy'}`}>
+                      {group.name}
+                      {group.status === 'owner' && ' (Owner)'}
+                      {group.status === 'pending' && ' (Pending)'}
+                    </p>
                     <p className={`text-xs ${activeGroup?.id === group.id ? 'text-white/80' : 'text-muted-foreground'}`}>
                       {group.memberCount} members
                     </p>
@@ -464,7 +518,7 @@ const GroupView: React.FC<GroupViewProps> = ({ questionId, onBack, options, ques
           </div>
         </ScrollArea>
         
-        {activeGroup && (
+        {activeGroup && activeGroup.status !== 'pending' && (
           <div className="flex mt-4">
             <Button
               onClick={handleViewResults}
@@ -475,7 +529,7 @@ const GroupView: React.FC<GroupViewProps> = ({ questionId, onBack, options, ques
           </div>
         )}
         
-        {activeGroup && (
+        {activeGroup && activeGroup.status !== 'pending' && (
           <div className="mt-4">
             <Button
               onClick={openLeaveConfirmation}

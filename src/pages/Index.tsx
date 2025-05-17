@@ -1,6 +1,5 @@
-
 import React, { useState, useEffect } from 'react';
-import { Navigate } from 'react-router-dom';
+import { Navigate, Route, Routes } from 'react-router-dom';
 import LoginForm from '@/components/auth/LoginForm';
 import SignupForm from '@/components/auth/SignupForm';
 import ForgotPasswordForm from '@/components/auth/ForgotPasswordForm';
@@ -11,6 +10,10 @@ import WelcomeScreen from '@/components/welcome/WelcomeScreen';
 import { useToast } from '@/components/ui/use-toast';
 import { useAuth } from '@/context/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
+import ResetPasswordForm from '@/components/auth/ResetPasswordForm';
+import Settings from './Settings';
+import PrivacyPolicy from './PrivacyPolicy';
+import TermsOfService from './TermsOfService';
 
 // Mock data for development
 const mockResults = [
@@ -69,6 +72,9 @@ const Index = () => {
 
   // Render current view
   const renderView = () => {
+    if (window.location.pathname === '/reset-password') {
+      return <ResetPasswordForm />;
+    }
     switch (view) {
       case AppView.WELCOME:
         return <WelcomeScreen onStart={handleStart} />;
@@ -84,11 +90,17 @@ const Index = () => {
   };
 
   return (
-    <div className="min-h-screen bg-alike-lightgray flex flex-col">
-      <div className="flex-1 flex items-center justify-center p-4">
-        {renderView()}
-      </div>
-    </div>
+    <Routes>
+      <Route path="/privacy-policy" element={<PrivacyPolicy />} />
+      <Route path="/terms-of-service" element={<TermsOfService />} />
+      <Route path="*" element={
+        <div className="min-h-screen bg-alike-lightgray flex flex-col">
+          <div className="flex-1 flex items-center justify-center p-4">
+            {renderView()}
+          </div>
+        </div>
+      } />
+    </Routes>
   );
 };
 

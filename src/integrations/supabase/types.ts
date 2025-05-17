@@ -74,18 +74,21 @@ export type Database = {
           id: string
           joined_at: string
           user_id: string
+          status: string
         }
         Insert: {
           group_id: string
           id?: string
           joined_at?: string
           user_id: string
+          status?: string
         }
         Update: {
           group_id?: string
           id?: string
           joined_at?: string
           user_id?: string
+          status?: string
         }
         Relationships: [
           {
@@ -105,6 +108,7 @@ export type Database = {
           invite_code: string
           name: string
           updated_at: string
+          owner_id: string
         }
         Insert: {
           created_at?: string
@@ -113,6 +117,7 @@ export type Database = {
           invite_code: string
           name: string
           updated_at?: string
+          owner_id: string
         }
         Update: {
           created_at?: string
@@ -121,6 +126,7 @@ export type Database = {
           invite_code?: string
           name?: string
           updated_at?: string
+          owner_id?: string
         }
         Relationships: []
       }

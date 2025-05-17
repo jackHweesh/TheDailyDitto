@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -27,7 +26,7 @@ const LoginForm: React.FC<LoginFormProps> = ({ onSwitchToSignup, onForgotPasswor
       await signIn(email, password);
       toast({
         title: "Login successful",
-        description: "Welcome back to Alike!",
+        description: "Welcome back to Ditto!",
       });
     } catch (error) {
       // Error is already handled in the signIn function
