@@ -453,7 +453,7 @@ const GroupView: React.FC<GroupViewProps> = ({ questionId, onBack, options, ques
           <h2 className="text-xl font-semibold text-alike-navy">My Groups</h2>
         </div>
         <p className="text-sm text-muted-foreground">
-          Join or create groups to view individual answers, discover who you're most alike, and chat about results
+          Join or create groups to view individuals' answers, discover who you're most alike, and chat about results
         </p>
       </CardHeader>
       <CardContent className="space-y-4">
