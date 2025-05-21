@@ -83,10 +83,8 @@ const QuestionOfDay: React.FC<QuestionProps> = ({ question, options, questionId,
   return (
     <Card className="w-full max-w-md mx-auto shadow-lg border-0">
       <CardHeader className="space-y-1">
-        <div className="flex items-center justify-between">
-          <p className="text-sm text-muted-foreground">{currentDate}</p>
-          <span className="text-lg font-bold text-alike-navy">Question of the Day</span>
-        </div>
+        <p className="text-sm text-muted-foreground">{currentDate}</p>
+        <span className="text-lg font-bold text-alike-navy">Question of the Day</span>
         <h2 className="text-xl font-semibold text-alike-navy">{question}</h2>
       </CardHeader>
       <form onSubmit={handleSubmit}>

@@ -27,6 +27,9 @@ const App = () => (
             <Route path="/reset-password" element={<ResetPasswordForm />} />
             <Route path="/auth" element={<Auth />} />
             <Route path="/" element={<Dashboard />} />
+            <Route path="/groups/:groupId" element={<Dashboard />} />
+            <Route path="/groups/:groupId/results" element={<Dashboard />} />
+            <Route path="/groups/:groupId/members" element={<Dashboard />} />
             <Route path="/privacy-policy" element={<PrivacyPolicy />} />
             <Route path="/terms-of-service" element={<TermsOfService />} />
             <Route path="/contact" element={<Contact />} />

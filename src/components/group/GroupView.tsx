@@ -18,6 +18,7 @@ import { useAuth } from '@/context/AuthContext';
 import { nanoid } from 'nanoid';
 import GroupResultsView from './GroupResultsView';
 import GroupMembersPage from './GroupMembersPage';
+import { useNavigate, useParams, useLocation } from 'react-router-dom';
 
 interface Group {
   id: string;
@@ -35,6 +36,9 @@ interface GroupViewProps {
 }
 
 const GroupView: React.FC<GroupViewProps> = ({ questionId, onBack, options, questionText }) => {
+  const navigate = useNavigate();
+  const { groupId } = useParams();
+  const location = useLocation();
   const [inviteCode, setInviteCode] = useState('');
   const [newGroupName, setNewGroupName] = useState('');
   const [groups, setGroups] = useState<Group[]>([]);
@@ -47,69 +51,67 @@ const GroupView: React.FC<GroupViewProps> = ({ questionId, onBack, options, ques
   const { toast } = useToast();
   const { user } = useAuth();
 
-  // Fetch user's groups
-  useEffect(() => {
-    const fetchGroups = async () => {
-      if (!user) return;
-      
-      setIsLoading(true);
-      try {
-        // Get groups that the user is a member of
-        const { data: membershipData, error: membershipError } = await supabase
-          .from('group_members')
-          .select('group_id, status')
-          .eq('user_id', user.id);
-        
-        if (membershipError) throw membershipError;
-        
-        if (membershipData && membershipData.length > 0) {
-          // Get group details
-          const groupIds = membershipData.map(item => item.group_id);
-          const { data: groupsData, error: groupsError } = await supabase
-            .from('groups')
-            .select('id, name, owner_id')
-            .in('id', groupIds);
-          
-          if (groupsError) throw groupsError;
-          
-          // Get member counts for each group
-          if (groupsData) {
-            const groupsWithCounts = await Promise.all(
-              groupsData.map(async (group) => {
-                const { count, error: countError } = await supabase
-                  .from('group_members')
-                  .select('*', { count: 'exact', head: true })
-                  .eq('group_id', group.id);
-                
-                // Find this user's membership status
-                const membership = membershipData.find(m => m.group_id === group.id);
-                
-                return {
-                  id: group.id,
-                  name: group.name,
-                  memberCount: count || 0,
-                  status: membership?.status || 'pending',
-                  owner_id: group.owner_id
-                };
-              })
-            );
-            
-            setGroups(groupsWithCounts);
+  // Move fetchGroups outside useEffect so it can be called elsewhere
+  const fetchGroups = async () => {
+    if (!user) return;
+    setIsLoading(true);
+    try {
+      // Get groups that the user is a member of
+      const { data: membershipData, error: membershipError } = await supabase
+        .from('group_members')
+        .select('group_id, status')
+        .eq('user_id', user.id);
+      if (membershipError) throw membershipError;
+      if (membershipData && membershipData.length > 0) {
+        // Get group details
+        const groupIds = membershipData.map(item => item.group_id);
+        const { data: groupsData, error: groupsError } = await supabase
+          .from('groups')
+          .select('id, name, owner_id')
+          .in('id', groupIds);
+        if (groupsError) throw groupsError;
+        // Get member counts for each group
+        if (groupsData) {
+          const groupsWithCounts = await Promise.all(
+            groupsData.map(async (group) => {
+              const { count, error: countError } = await supabase
+                .from('group_members')
+                .select('*', { count: 'exact', head: true })
+                .eq('group_id', group.id);
+              // Find this user's membership status
+              const membership = membershipData.find(m => m.group_id === group.id);
+              return {
+                id: group.id,
+                name: group.name,
+                memberCount: count || 0,
+                status: membership?.status || 'pending',
+                owner_id: group.owner_id
+              };
+            })
+          );
+          setGroups(groupsWithCounts);
+          // Set active group based on URL if available
+          if (groupId) {
+            const group = groupsWithCounts.find(g => g.id === groupId);
+            if (group) {
+              setActiveGroup(group);
+            }
           }
         }
-      } catch (error: any) {
-        toast({
-          title: "Error loading groups",
-          description: error.message || "Could not load your groups",
-          variant: "destructive"
-        });
-      } finally {
-        setIsLoading(false);
       }
-    };
-    
+    } catch (error: any) {
+      toast({
+        title: "Error loading groups",
+        description: error.message || "Could not load your groups",
+        variant: "destructive"
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
     fetchGroups();
-    
     // Subscribe to group member changes
     const channel = supabase
       .channel('group_members_channel')
@@ -126,11 +128,10 @@ const GroupView: React.FC<GroupViewProps> = ({ questionId, onBack, options, ques
         }
       )
       .subscribe();
-      
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [user, toast]);
+  }, [user, toast, groupId]);
 
   const handleJoinGroup = async () => {
     if (!user) {
@@ -304,10 +305,19 @@ const GroupView: React.FC<GroupViewProps> = ({ questionId, onBack, options, ques
       return;
     }
     setActiveGroup(group);
+    navigate(`/groups/${group.id}/results`);
   };
   
-  const handleViewResults = async () => {
-    setShowResults(true);
+  const handleViewResults = () => {
+    if (activeGroup) {
+      navigate(`/groups/${activeGroup.id}/results`);
+    }
+  };
+  
+  const handleViewMembers = () => {
+    if (activeGroup) {
+      navigate(`/groups/${activeGroup.id}/members`);
+    }
   };
   
   const openLeaveConfirmation = () => {
@@ -391,26 +401,39 @@ const GroupView: React.FC<GroupViewProps> = ({ questionId, onBack, options, ques
     }
   };
   
-  if (showMembers && activeGroup) {
-    return (
-      <GroupMembersPage
-        groupId={activeGroup.id}
-        groupName={activeGroup.name}
-        onBack={() => setShowMembers(false)}
-      />
-    );
-  }
+  const handleBack = () => {
+    if (location.pathname.includes('/results') || location.pathname.includes('/members')) {
+      // If we're in a sub-view (results or members), go back to the group view
+      navigate(`/groups/${activeGroup?.id}`);
+    } else if (groupId) {
+      // If we're in a group view, go back to the main view
+      onBack();
+    } else {
+      // If we're in the main groups view, go back to results
+      onBack();
+    }
+  };
 
-  if (showResults && activeGroup) {
+  if (location.pathname.includes('/results') && activeGroup) {
     return (
       <GroupResultsView
         groupId={activeGroup.id}
         groupName={activeGroup.name}
         questionId={questionId}
-        onBack={() => setShowResults(false)}
+        onBack={() => navigate(`/groups/${activeGroup.id}`)}
         options={options}
         questionText={questionText}
-        onViewMembers={() => setShowMembers(true)}
+        onViewMembers={handleViewMembers}
+      />
+    );
+  }
+
+  if (location.pathname.includes('/members') && activeGroup) {
+    return (
+      <GroupMembersPage
+        groupId={activeGroup.id}
+        groupName={activeGroup.name}
+        onBack={() => navigate(`/groups/${activeGroup.id}/results`)}
       />
     );
   }
@@ -422,15 +445,15 @@ const GroupView: React.FC<GroupViewProps> = ({ questionId, onBack, options, ques
           <Button 
             variant="ghost" 
             size="sm" 
-            onClick={onBack} 
-            className="mr-2 rounded-full p-2"
+            onClick={handleBack} 
+            className="mr-2 rounded-full p-2 bold-back-arrow"
           >
             ←
           </Button>
           <h2 className="text-xl font-semibold text-alike-navy">My Groups</h2>
         </div>
         <p className="text-sm text-muted-foreground">
-          Join or create groups to compare answers with specific communities
+          Join or create groups to view individual answers, discover who you're most alike, and chat about results
         </p>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -517,60 +540,6 @@ const GroupView: React.FC<GroupViewProps> = ({ questionId, onBack, options, ques
             )}
           </div>
         </ScrollArea>
-        
-        {activeGroup && activeGroup.status !== 'pending' && (
-          <div className="flex mt-4">
-            <Button
-              onClick={handleViewResults}
-              className="w-full bg-alike-teal hover:bg-alike-teal/90 text-white"
-            >
-              View Group Results & Chat
-            </Button>
-          </div>
-        )}
-        
-        {activeGroup && activeGroup.status !== 'pending' && (
-          <div className="mt-4">
-            <Button
-              onClick={openLeaveConfirmation}
-              variant="outline"
-              className="w-full border-red-500 text-red-500 hover:bg-red-50"
-            >
-              Leave Group
-            </Button>
-            
-            <Dialog open={showLeaveConfirmation} onOpenChange={setShowLeaveConfirmation}>
-              <DialogContent>
-                <DialogHeader>
-                  <DialogTitle>Leave Group</DialogTitle>
-                  <DialogDescription>
-                    Are you sure you want to leave "{activeGroup.name}"?
-                    {activeGroup.memberCount <= 1 && (
-                      <p className="mt-2 text-red-500">
-                        You are the last member. This group will be permanently deleted if you leave.
-                      </p>
-                    )}
-                  </DialogDescription>
-                </DialogHeader>
-                <DialogFooter>
-                  <Button 
-                    variant="outline" 
-                    onClick={() => setShowLeaveConfirmation(false)}
-                  >
-                    Cancel
-                  </Button>
-                  <Button 
-                    variant="destructive"
-                    onClick={handleLeaveGroup}
-                    disabled={isLeavingGroup}
-                  >
-                    {isLeavingGroup ? "Leaving..." : "Leave Group"}
-                  </Button>
-                </DialogFooter>
-              </DialogContent>
-            </Dialog>
-          </div>
-        )}
       </CardContent>
     </Card>
   );

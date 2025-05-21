@@ -167,7 +167,7 @@ const ResultsView: React.FC<ResultsViewProps> = ({
                 <BarChart
                   data={resultsToShow}
                   layout="vertical"
-                  margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
+                  margin={{ top: 5, right: 50, left: 20, bottom: 5 }}
                 >
                   <XAxis type="number" hide />
                   <YAxis type="category" dataKey="option" width={120} />

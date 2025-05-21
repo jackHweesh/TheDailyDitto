@@ -66,10 +66,14 @@ const GroupResultsView: React.FC<GroupResultsViewProps> = ({
   const [isSending, setIsSending] = useState(false);
   const [userProfiles, setUserProfiles] = useState<Record<string, string>>({});
   const [inviteCode, setInviteCode] = useState<string>('');
+  const [retryCount, setRetryCount] = useState(0);
+  const [subscriptionError, setSubscriptionError] = useState<string | null>(null);
+  const [messageError, setMessageError] = useState<string | null>(null);
   
   const { toast } = useToast();
   const { user } = useAuth();
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const MAX_RETRIES = 3;
 
   const [showCalendar, setShowCalendar] = useState(false);
   const [allQuestions, setAllQuestions] = useState<any[]>([]);
@@ -145,40 +149,35 @@ const GroupResultsView: React.FC<GroupResultsViewProps> = ({
         // Get all members of the group
         const { data: members, error: membersError } = await supabase
           .from('group_members')
-          .select('user_id')
+          .select('user_id, status')
           .eq('group_id', groupId);
 
         if (membersError) throw membersError;
 
-        console.log('All group members:', members);
+        // Only include accepted members (not pending)
+        const acceptedMemberIds = (members || []).filter(m => m.status !== 'pending').map(m => m.user_id);
+        console.log('Accepted member IDs:', acceptedMemberIds);
 
-        if (members && members.length > 0) {
-          // Get votes from group members for this question
-          const memberIds = members.map(member => member.user_id);
-          console.log('Member IDs we are looking up:', memberIds);
-          
+        if (acceptedMemberIds.length > 0) {
+          // Get votes from accepted group members for this question
           const { data: votes, error: votesError } = await supabase
             .from('votes')
             .select('user_id, selected_option')
             .eq('question_id', questionId)
-            .in('user_id', memberIds);
+            .in('user_id', acceptedMemberIds);
 
           if (votesError) throw votesError;
           
-          console.log('Votes found:', votes);
-
           // Get names for the voters
           const { data: profiles, error: profilesError } = await supabase
             .from('profiles')
             .select('id, first_name, last_name')
-            .in('id', memberIds);
+            .in('id', acceptedMemberIds);
 
           if (profilesError) {
             console.error('Profile error:', profilesError);
             throw profilesError;
           }
-
-          console.log('Profiles found:', profiles);
 
           // Create a map of user IDs to full names
           const nameMap = new Map();
@@ -227,6 +226,8 @@ const GroupResultsView: React.FC<GroupResultsViewProps> = ({
           }));
 
           setGroupResults(formattedResults);
+        } else {
+          setGroupResults([]);
         }
       } catch (error: any) {
         toast({
@@ -243,40 +244,40 @@ const GroupResultsView: React.FC<GroupResultsViewProps> = ({
   }, [groupId, questionId, options, toast]);
 
   // Fetch chat messages
-  useEffect(() => {
-    const fetchMessages = async () => {
-      setIsLoadingChat(true);
-      
-      try {
-        const { data, error } = await supabase
-          .from('chat_messages')
-          .select('*')
-          .eq('group_id', groupId)
-          .order('created_at', { ascending: true });
-          
-        if (error) throw error;
+  const fetchMessages = async () => {
+    setIsLoadingChat(true);
+    try {
+      const { data, error } = await supabase
+        .from('chat_messages')
+        .select('*')
+        .eq('group_id', groupId)
+        .gte('created_at', new Date(Date.now() - 72 * 60 * 60 * 1000).toISOString())
+        .order('created_at', { ascending: true });
         
-        if (data) {
-          setMessages(data);
-          
-          // Collect unique user IDs
-          const userIds = [...new Set(data.map(message => message.user_id))];
-          await fetchUserProfiles(userIds);
-        }
-      } catch (error: any) {
-        toast({
-          title: "Error loading messages",
-          description: error.message || "Could not load chat messages",
-          variant: "destructive"
-        });
-      } finally {
-        setIsLoadingChat(false);
+      if (error) throw error;
+      
+      if (data) {
+        setMessages(data);
+        // Collect unique user IDs
+        const userIds = [...new Set(data.map(message => message.user_id))];
+        await fetchUserProfiles(userIds);
       }
-    };
-    
+    } catch (error: any) {
+      console.error('Error fetching messages:', error);
+      toast({
+        title: "Error loading messages",
+        description: error.message || "Could not load chat messages",
+        variant: "destructive"
+      });
+    } finally {
+      setIsLoadingChat(false);
+    }
+  };
+
+  // Set up real-time subscription
+  useEffect(() => {
     fetchMessages();
     
-    // Set up real-time subscription to new messages
     const channel = supabase
       .channel('chat-channel')
       .on(
@@ -291,23 +292,29 @@ const GroupResultsView: React.FC<GroupResultsViewProps> = ({
           const newMessage = payload.new as Message;
           setMessages(prevMessages => [...prevMessages, newMessage]);
           
-          // If this is a new user, fetch their profile
           if (!userProfiles[newMessage.user_id]) {
             await fetchUserProfiles([newMessage.user_id]);
           }
         }
       )
       .subscribe();
-      
+
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [groupId, toast]);
-  
+  }, [groupId]);
+
   // Scroll to bottom when new messages arrive
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
+
+  // Scroll to bottom when component first loads and messages are loaded
+  useEffect(() => {
+    if (!isLoadingChat && messages.length > 0) {
+      scrollToBottom();
+    }
+  }, [isLoadingChat, messages.length]);
   
   const fetchUserProfiles = async (userIds: string[]) => {
     try {
@@ -347,12 +354,15 @@ const GroupResultsView: React.FC<GroupResultsViewProps> = ({
     }
   };
   
+  // Handle message sending
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
     
     if (!newMessage.trim() || !user || isSending) return;
     
     setIsSending(true);
+    const messageToSend = newMessage.trim();
+    setNewMessage('');
     
     try {
       const { error } = await supabase
@@ -360,13 +370,13 @@ const GroupResultsView: React.FC<GroupResultsViewProps> = ({
         .insert({
           group_id: groupId,
           user_id: user.id,
-          message: newMessage.trim()
+          message: messageToSend
         });
         
       if (error) throw error;
-      
-      setNewMessage('');
     } catch (error: any) {
+      console.error('Error sending message:', error);
+      setNewMessage(messageToSend); // Restore the message
       toast({
         title: "Error sending message",
         description: error.message || "Could not send your message",
@@ -641,7 +651,7 @@ const GroupResultsView: React.FC<GroupResultsViewProps> = ({
             variant="ghost" 
             size="sm" 
             onClick={onBack} 
-            className="mr-2 rounded-full p-2"
+            className="mr-2 rounded-full p-2 bold-back-arrow"
           >
             ←
           </Button>
@@ -783,7 +793,7 @@ const GroupResultsView: React.FC<GroupResultsViewProps> = ({
                   className="bg-alike-teal hover:bg-alike-teal/90 text-white rounded-md"
                   disabled={isSending || !newMessage.trim()}
                 >
-                  Send
+                  {isSending ? 'Sending...' : 'Send'}
                 </Button>
               </form>
             </div>

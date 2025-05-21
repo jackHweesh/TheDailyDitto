@@ -15,6 +15,7 @@ interface SignupFormProps {
 const SignupForm: React.FC<SignupFormProps> = ({ onSwitchToLogin }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [gender, setGender] = useState('');
@@ -22,30 +23,48 @@ const SignupForm: React.FC<SignupFormProps> = ({ onSwitchToLogin }) => {
   const [state, setState] = useState('');
   const [country, setCountry] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [passwordError, setPasswordError] = useState('');
   
   const { toast } = useToast();
   const { signUp } = useAuth();
 
   const countryList = [
-    'United States', 'Canada', 'United Kingdom', 'Australia', 'Germany', 'France', 'India', 'China', 'Japan', 'Brazil',
-    'South Africa', 'Mexico', 'Italy', 'Spain', 'Russia', 'Netherlands', 'Sweden', 'Norway', 'Denmark', 'Finland',
-    'New Zealand', 'Singapore', 'South Korea', 'Turkey', 'Switzerland', 'Ireland', 'Belgium', 'Austria', 'Poland',
-    'Portugal', 'Argentina', 'Chile', 'Colombia', 'Peru', 'Philippines', 'Indonesia', 'Malaysia', 'Thailand', 'Vietnam',
-    'Saudi Arabia', 'United Arab Emirates', 'Egypt', 'Nigeria', 'Kenya', 'Ghana', 'Pakistan', 'Bangladesh', 'Israel',
-    'Greece', 'Czech Republic', 'Hungary', 'Romania', 'Slovakia', 'Slovenia', 'Croatia', 'Bulgaria', 'Estonia', 'Latvia',
-    'Lithuania', 'Iceland', 'Luxembourg', 'Monaco', 'Liechtenstein', 'Malta', 'Cyprus', 'Qatar', 'Kuwait', 'Morocco',
-    'Algeria', 'Tunisia', 'Jordan', 'Lebanon', 'Oman', 'Bahrain', 'Sri Lanka', 'Nepal', 'Myanmar', 'Cambodia', 'Laos',
-    'Mongolia', 'Kazakhstan', 'Uzbekistan', 'Georgia', 'Armenia', 'Azerbaijan', 'Belarus', 'Ukraine', 'Moldova', 'Serbia',
-    'Montenegro', 'Bosnia and Herzegovina', 'North Macedonia', 'Albania', 'Paraguay', 'Uruguay', 'Venezuela', 'Ecuador',
-    'Bolivia', 'Costa Rica', 'Panama', 'Guatemala', 'Honduras', 'El Salvador', 'Nicaragua', 'Jamaica', 'Trinidad and Tobago',
-    'Barbados', 'Bahamas', 'Cuba', 'Dominican Republic', 'Haiti', 'Zimbabwe', 'Zambia', 'Botswana', 'Namibia', 'Mozambique',
-    'Angola', 'Cameroon', 'Ivory Coast', 'Senegal', 'Tanzania', 'Uganda', 'Rwanda', 'Burundi', 'Malawi', 'Madagascar',
-    'Other'
+    'United States',
+    ...[
+      'Afghanistan', 'Albania', 'Algeria', 'Andorra', 'Angola', 'Antigua and Barbuda', 'Argentina', 'Armenia', 'Australia', 'Austria',
+      'Azerbaijan', 'Bahamas', 'Bahrain', 'Bangladesh', 'Barbados', 'Belarus', 'Belgium', 'Belize', 'Benin', 'Bhutan',
+      'Bolivia', 'Bosnia and Herzegovina', 'Botswana', 'Brazil', 'Brunei', 'Bulgaria', 'Burkina Faso', 'Burundi', 'Cabo Verde', 'Cambodia',
+      'Cameroon', 'Canada', 'Central African Republic', 'Chad', 'Chile', 'China', 'Colombia', 'Comoros', 'Congo', 'Costa Rica',
+      'Croatia', 'Cuba', 'Cyprus', 'Czech Republic', 'Denmark', 'Djibouti', 'Dominica', 'Dominican Republic', 'Ecuador', 'Egypt',
+      'El Salvador', 'Equatorial Guinea', 'Eritrea', 'Estonia', 'Eswatini', 'Ethiopia', 'Fiji', 'Finland', 'France', 'Gabon',
+      'Gambia', 'Georgia', 'Germany', 'Ghana', 'Greece', 'Grenada', 'Guatemala', 'Guinea', 'Guinea-Bissau', 'Guyana',
+      'Haiti', 'Honduras', 'Hungary', 'Iceland', 'India', 'Indonesia', 'Iran', 'Iraq', 'Ireland', 'Israel',
+      'Italy', 'Jamaica', 'Japan', 'Jordan', 'Kazakhstan', 'Kenya', 'Kiribati', 'Kuwait', 'Kyrgyzstan', 'Laos',
+      'Latvia', 'Lebanon', 'Lesotho', 'Liberia', 'Libya', 'Liechtenstein', 'Lithuania', 'Luxembourg', 'Madagascar', 'Malawi',
+      'Malaysia', 'Maldives', 'Mali', 'Malta', 'Marshall Islands', 'Mauritania', 'Mauritius', 'Mexico', 'Micronesia', 'Moldova',
+      'Monaco', 'Mongolia', 'Montenegro', 'Morocco', 'Mozambique', 'Myanmar', 'Namibia', 'Nauru', 'Nepal', 'Netherlands',
+      'New Zealand', 'Nicaragua', 'Niger', 'Nigeria', 'North Korea', 'North Macedonia', 'Norway', 'Oman', 'Pakistan', 'Palau',
+      'Palestine', 'Panama', 'Papua New Guinea', 'Paraguay', 'Peru', 'Philippines', 'Poland', 'Portugal', 'Qatar', 'Romania',
+      'Russia', 'Rwanda', 'Saint Kitts and Nevis', 'Saint Lucia', 'Saint Vincent and the Grenadines', 'Samoa', 'San Marino', 'Sao Tome and Principe', 'Saudi Arabia', 'Senegal',
+      'Serbia', 'Seychelles', 'Sierra Leone', 'Singapore', 'Slovakia', 'Slovenia', 'Solomon Islands', 'Somalia', 'South Africa', 'South Korea',
+      'South Sudan', 'Spain', 'Sri Lanka', 'Sudan', 'Suriname', 'Sweden', 'Switzerland', 'Syria', 'Taiwan', 'Tajikistan',
+      'Tanzania', 'Thailand', 'Timor-Leste', 'Togo', 'Tonga', 'Trinidad and Tobago', 'Tunisia', 'Turkey', 'Turkmenistan', 'Tuvalu',
+      'Uganda', 'Ukraine', 'United Arab Emirates', 'United Kingdom', 'Uruguay', 'Uzbekistan', 'Vanuatu', 'Vatican City', 'Venezuela', 'Vietnam',
+      'Yemen', 'Zambia', 'Zimbabwe', 'Other'
+    ].sort()
   ];
 
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
+
+    if (password !== confirmPassword) {
+      setPasswordError('Passwords do not match');
+      setIsLoading(false);
+      return;
+    } else {
+      setPasswordError('');
+    }
 
     try {
       if (parseInt(age) <= 0 || parseInt(age) > 120) {
@@ -66,7 +85,7 @@ const SignupForm: React.FC<SignupFormProps> = ({ onSwitchToLogin }) => {
 
       toast({
         title: "Sign-up successful",
-        description: "Welcome to Alike! Please check your email to confirm your account.",
+        description: "Welcome to Ditto! Please check your email to confirm your account.",
       });
       
       onSwitchToLogin();
@@ -125,6 +144,21 @@ const SignupForm: React.FC<SignupFormProps> = ({ onSwitchToLogin }) => {
               disabled={isLoading}
               minLength={6}
             />
+          </div>
+          <div className="space-y-2">
+            <Input
+              type="password"
+              placeholder="Confirm Password"
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              className="rounded-md h-12"
+              required
+              disabled={isLoading}
+              minLength={6}
+            />
+            {passwordError && (
+              <div className="text-red-600 text-sm">{passwordError}</div>
+            )}
           </div>
           <div className="space-y-2">
             <Input

@@ -91,17 +91,35 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const signOut = async () => {
     try {
+      const { data: { session: currentSession } } = await supabase.auth.getSession();
+      if (!currentSession) {
+        setSession(null);
+        setUser(null);
+        return;
+      }
       const { error } = await supabase.auth.signOut();
       if (error) throw error;
-      // Clear local state
       setSession(null);
       setUser(null);
     } catch (error: any) {
+      // If error is about missing session or 403, treat as successful sign out
+      const errorMsg = error.message || "";
+      if (
+        errorMsg.toLowerCase().includes("session missing") ||
+        errorMsg.toLowerCase().includes("auth session missing") ||
+        errorMsg.toLowerCase().includes("403")
+      ) {
+        setSession(null);
+        setUser(null);
+        return;
+      }
       toast({
         title: "Sign out error",
-        description: error.message || "An error occurred during sign out",
+        description: errorMsg || "An error occurred during sign out",
         variant: "destructive",
       });
+      setSession(null);
+      setUser(null);
       throw error;
     }
   };

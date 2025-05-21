@@ -40,7 +40,7 @@ const LoginForm: React.FC<LoginFormProps> = ({ onSwitchToSignup, onForgotPasswor
       <CardHeader className="space-y-1 flex flex-col items-center">
         <Logo />
         <p className="text-sm text-center text-muted-foreground mt-4">
-          Sign in to this platform<br/>to see what others think, share your opinion, and interact
+          Sign-in<br/>Discover who thinks like you with one question a day
         </p>
       </CardHeader>
       <form onSubmit={handleLogin}>

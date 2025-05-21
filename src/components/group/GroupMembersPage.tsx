@@ -4,11 +4,14 @@ import { Button } from '@/components/ui/button';
 import { useAuth } from '@/context/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/components/ui/use-toast';
+import { useNavigate } from 'react-router-dom';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 
 interface GroupMembersPageProps {
   groupId: string;
   groupName: string;
   onBack: () => void;
+  onGroupNameChanged?: () => void;
 }
 
 interface Member {
@@ -18,7 +21,7 @@ interface Member {
   status: string;
 }
 
-const GroupMembersPage: React.FC<GroupMembersPageProps> = ({ groupId, groupName, onBack }) => {
+const GroupMembersPage: React.FC<GroupMembersPageProps> = ({ groupId, groupName, onBack, onGroupNameChanged }) => {
   const { user } = useAuth();
   const [members, setMembers] = useState<Member[]>([]);
   const [pendingMembers, setPendingMembers] = useState<Member[]>([]);
@@ -27,6 +30,9 @@ const GroupMembersPage: React.FC<GroupMembersPageProps> = ({ groupId, groupName,
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [userStatus, setUserStatus] = useState<string>('pending');
   const { toast } = useToast();
+  const navigate = useNavigate();
+  const [showLeaveConfirmation, setShowLeaveConfirmation] = useState(false);
+  const [isLeavingGroup, setIsLeavingGroup] = useState(false);
 
   useEffect(() => {
     const fetchMembers = async () => {
@@ -169,6 +175,134 @@ const GroupMembersPage: React.FC<GroupMembersPageProps> = ({ groupId, groupName,
     window.dispatchEvent(event);
   };
 
+  const handleLeaveGroup = async () => {
+    if (!user) return;
+    setIsLeavingGroup(true);
+    setShowLeaveConfirmation(false);
+    try {
+      // Find the membership record to delete
+      const { data: membership, error: membershipError } = await supabase
+        .from('group_members')
+        .select('id, status')
+        .eq('group_id', groupId)
+        .eq('user_id', user.id)
+        .single();
+      if (membershipError) throw membershipError;
+      if (!membership) throw new Error('Membership not found');
+
+      // Check if the user is the owner
+      const { data: groupData, error: groupError } = await supabase
+        .from('groups')
+        .select('owner_id')
+        .eq('id', groupId)
+        .single();
+      if (groupError) throw groupError;
+      const isOwnerLeaving = groupData && groupData.owner_id === user.id;
+
+      // Remove the user from the group
+      const { error: leaveError } = await supabase
+        .from('group_members')
+        .delete()
+        .eq('id', membership.id);
+      if (leaveError) throw leaveError;
+
+      // Check if the group is now empty
+      const { data: remainingMembers, error: countError } = await supabase
+        .from('group_members')
+        .select('user_id, status, joined_at')
+        .eq('group_id', groupId);
+      if (countError) throw countError;
+
+      if (!remainingMembers || remainingMembers.length === 0) {
+        // Delete chat messages first
+        const { error: messagesError } = await supabase
+          .from('chat_messages')
+          .delete()
+          .eq('group_id', groupId);
+        if (messagesError) throw messagesError;
+        // Delete the group
+        const { error: groupDeleteError } = await supabase
+          .from('groups')
+          .delete()
+          .eq('id', groupId);
+        if (groupDeleteError) throw groupDeleteError;
+        toast({
+          title: "Group deleted",
+          description: `You were the last member, so the group has been deleted`,
+        });
+        onBack();
+        return;
+      }
+
+      if (isOwnerLeaving) {
+        // Transfer ownership to the next eligible member (the first member after the owner)
+        const eligibleMembers = remainingMembers.filter((m: any) => m.status !== 'pending');
+        if (eligibleMembers.length > 0) {
+          eligibleMembers.sort((a: any, b: any) => {
+            if (a.joined_at && b.joined_at) {
+              return new Date(a.joined_at).getTime() - new Date(b.joined_at).getTime();
+            }
+            return a.user_id.localeCompare(b.user_id);
+          });
+          // Find the member who joined after the owner (index 1)
+          let newOwnerId;
+          if (eligibleMembers.length > 1) {
+            newOwnerId = eligibleMembers[1].user_id;
+          } else {
+            newOwnerId = eligibleMembers[0].user_id;
+          }
+          // Update groups.owner_id
+          const { error: updateOwnerError } = await supabase
+            .from('groups')
+            .update({ owner_id: newOwnerId })
+            .eq('id', groupId);
+          if (updateOwnerError) throw updateOwnerError;
+          // Update group_members.status for new owner
+          const { error: updateStatusError } = await supabase
+            .from('group_members')
+            .update({ status: 'owner' })
+            .eq('group_id', groupId)
+            .eq('user_id', newOwnerId);
+          if (updateStatusError) throw updateStatusError;
+          toast({
+            title: "Ownership transferred",
+            description: `Ownership has been transferred to the next member`,
+          });
+        } else {
+          // No eligible members, delete group as above
+          const { error: messagesError } = await supabase
+            .from('chat_messages')
+            .delete()
+            .eq('group_id', groupId);
+          if (messagesError) throw messagesError;
+          const { error: groupDeleteError } = await supabase
+            .from('groups')
+            .delete()
+            .eq('id', groupId);
+          if (groupDeleteError) throw groupDeleteError;
+          toast({
+            title: "Group deleted",
+            description: `No eligible members left, so the group has been deleted`,
+          });
+        }
+      } else {
+        toast({
+          title: "Group left",
+          description: `You have left the group`,
+        });
+      }
+      onBack();
+    } catch (error: any) {
+      toast({
+        title: "Error leaving group",
+        description: error.message || "Could not leave the group",
+        variant: "destructive"
+      });
+    } finally {
+      setIsLeavingGroup(false);
+    }
+  };
+
   // Listen for refresh event
   useEffect(() => {
     const handler = () => {
@@ -183,7 +317,7 @@ const GroupMembersPage: React.FC<GroupMembersPageProps> = ({ groupId, groupName,
     <Card className="w-full max-w-3xl mx-auto shadow-lg border-0 animate-fade-in">
       <CardHeader className="space-y-1 flex flex-row items-center justify-between">
         <div className="flex items-center">
-          <Button variant="ghost" size="sm" onClick={onBack} className="mr-2 rounded-full p-2">←</Button>
+          <Button variant="ghost" size="sm" onClick={onBack} className="mr-2 rounded-full p-2 bold-back-arrow">←</Button>
           <h2 className="text-xl font-semibold text-alike-navy">{groupName} Members</h2>
         </div>
       </CardHeader>
@@ -212,7 +346,7 @@ const GroupMembersPage: React.FC<GroupMembersPageProps> = ({ groupId, groupName,
               <p className="text-muted-foreground">No other members found.</p>
             ) : (
               <ul className="divide-y">
-                {members.map((m) => (
+                {[...members].sort((a, b) => b.alike - a.alike).map((m) => (
                   <li key={m.id} className="py-3 flex items-center justify-between">
                     <span className="font-medium text-alike-navy">
                       {m.name}
@@ -223,6 +357,40 @@ const GroupMembersPage: React.FC<GroupMembersPageProps> = ({ groupId, groupName,
                 ))}
               </ul>
             )}
+            <div className="mt-8 flex flex-col items-center gap-4">
+              <Button
+                onClick={() => setShowLeaveConfirmation(true)}
+                variant="outline"
+                className="border-red-500 text-red-500 hover:bg-red-50"
+              >
+                Leave Group
+              </Button>
+            </div>
+            <Dialog open={showLeaveConfirmation} onOpenChange={setShowLeaveConfirmation}>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Leave Group</DialogTitle>
+                  <DialogDescription>
+                    Are you sure you want to leave "{groupName}"?
+                  </DialogDescription>
+                </DialogHeader>
+                <DialogFooter>
+                  <Button 
+                    variant="outline" 
+                    onClick={() => setShowLeaveConfirmation(false)}
+                  >
+                    Cancel
+                  </Button>
+                  <Button 
+                    variant="destructive"
+                    onClick={handleLeaveGroup}
+                    disabled={isLeavingGroup}
+                  >
+                    {isLeavingGroup ? "Leaving..." : "Leave Group"}
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
           </>
         )}
       </CardContent>
