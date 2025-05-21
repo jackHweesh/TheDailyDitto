@@ -197,6 +197,11 @@ const ChatView: React.FC<ChatViewProps> = ({ groupId, groupName, onBack }) => {
     const date = new Date(dateString);
     return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   };
+
+  const formatMessageDay = (dateString: string) => {
+    const date = new Date(dateString);
+    return date.toLocaleDateString([], { weekday: 'long', month: 'long', day: 'numeric' });
+  };
   
   return (
     <Card className="w-full max-w-md mx-auto shadow-lg border-0 animate-fade-in">
@@ -242,31 +247,43 @@ const ChatView: React.FC<ChatViewProps> = ({ groupId, groupName, onBack }) => {
             </div>
           ) : (
             <div className="space-y-4">
-              {messages.map((message) => {
+              {messages.map((message, index) => {
                 const isCurrentUser = message.user_id === user?.id;
+                const currentDate = new Date(message.created_at).toDateString();
+                const previousDate = index > 0 ? new Date(messages[index - 1].created_at).toDateString() : null;
+                const showDateSeparator = previousDate !== currentDate;
+
                 return (
-                  <div 
-                    key={message.id}
-                    className={`flex ${isCurrentUser ? 'justify-end' : 'justify-start'}`}
-                  >
+                  <React.Fragment key={message.id}>
+                    {showDateSeparator && (
+                      <div className="flex justify-center my-4">
+                        <div className="bg-muted px-4 py-1 rounded-full text-sm text-muted-foreground">
+                          {formatMessageDay(message.created_at)}
+                        </div>
+                      </div>
+                    )}
                     <div 
-                      className={`max-w-[80%] rounded-lg p-3 ${
-                        isCurrentUser 
-                          ? 'bg-alike-teal text-white rounded-br-none' 
-                          : 'bg-muted rounded-bl-none'
-                      }`}
+                      className={`flex ${isCurrentUser ? 'justify-end' : 'justify-start'}`}
                     >
-                      {!isCurrentUser && (
-                        <p className="text-xs font-semibold mb-1">
-                          {userProfiles[message.user_id] || 'Unknown User'}
+                      <div 
+                        className={`max-w-[80%] rounded-lg p-3 ${
+                          isCurrentUser 
+                            ? 'bg-alike-teal text-white rounded-br-none' 
+                            : 'bg-muted rounded-bl-none'
+                        }`}
+                      >
+                        {!isCurrentUser && (
+                          <p className="text-xs font-semibold mb-1">
+                            {userProfiles[message.user_id] || 'Unknown User'}
+                          </p>
+                        )}
+                        <p className="text-sm">{message.message}</p>
+                        <p className={`text-xs mt-1 text-right ${isCurrentUser ? 'text-white/70' : 'text-muted-foreground'}`}>
+                          {formatMessageDate(message.created_at)}
                         </p>
-                      )}
-                      <p className="text-sm">{message.message}</p>
-                      <p className={`text-xs mt-1 text-right ${isCurrentUser ? 'text-white/70' : 'text-muted-foreground'}`}>
-                        {formatMessageDate(message.created_at)}
-                      </p>
+                      </div>
                     </div>
-                  </div>
+                  </React.Fragment>
                 );
               })}
               <div ref={messagesEndRef} />

@@ -434,6 +434,11 @@ const GroupResultsView: React.FC<GroupResultsViewProps> = ({
     return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   };
 
+  const formatMessageDay = (dateString: string) => {
+    const date = new Date(dateString);
+    return date.toLocaleDateString([], { weekday: 'long', month: 'long', day: 'numeric' });
+  };
+
   // Create a custom tooltip component for the bar chart
   const CustomTooltip = ({ active, payload, label }: any) => {
     if (active && payload && payload.length > 0) {
@@ -747,32 +752,44 @@ const GroupResultsView: React.FC<GroupResultsViewProps> = ({
                 </div>
               ) : (
                 <div className="space-y-4">
-                  {messages.map((message) => {
+                  {messages.map((message, index) => {
                     const isCurrentUser = message.user_id === user?.id;
                     const displayName = userProfiles[message.user_id] || 'Unknown User';
+                    const currentDate = new Date(message.created_at).toDateString();
+                    const previousDate = index > 0 ? new Date(messages[index - 1].created_at).toDateString() : null;
+                    const showDateSeparator = previousDate !== currentDate;
+
                     return (
-                      <div 
-                        key={message.id}
-                        className={`flex ${isCurrentUser ? 'justify-end' : 'justify-start'}`}
-                      >
+                      <React.Fragment key={message.id}>
+                        {showDateSeparator && (
+                          <div className="flex justify-center my-4">
+                            <div className="bg-muted px-4 py-1 rounded-full text-sm text-muted-foreground">
+                              {formatMessageDay(message.created_at)}
+                            </div>
+                          </div>
+                        )}
                         <div 
-                          className={`max-w-[80%] rounded-lg p-3 ${
-                            isCurrentUser 
-                              ? 'bg-alike-teal text-white rounded-br-none' 
-                              : 'bg-muted rounded-bl-none'
-                          }`}
+                          className={`flex ${isCurrentUser ? 'justify-end' : 'justify-start'}`}
                         >
-                          {!isCurrentUser && (
-                            <p className="text-xs font-semibold mb-1">
-                              {displayName}
+                          <div 
+                            className={`max-w-[80%] rounded-lg p-3 ${
+                              isCurrentUser 
+                                ? 'bg-alike-teal text-white rounded-br-none' 
+                                : 'bg-muted rounded-bl-none'
+                            }`}
+                          >
+                            {!isCurrentUser && (
+                              <p className="text-xs font-semibold mb-1">
+                                {displayName}
+                              </p>
+                            )}
+                            <p className="text-sm">{message.message}</p>
+                            <p className={`text-xs mt-1 text-right ${isCurrentUser ? 'text-white/70' : 'text-muted-foreground'}`}>
+                              {formatMessageDate(message.created_at)}
                             </p>
-                          )}
-                          <p className="text-sm">{message.message}</p>
-                          <p className={`text-xs mt-1 text-right ${isCurrentUser ? 'text-white/70' : 'text-muted-foreground'}`}>
-                            {formatMessageDate(message.created_at)}
-                          </p>
+                          </div>
                         </div>
-                      </div>
+                      </React.Fragment>
                     );
                   })}
                   <div ref={messagesEndRef} />
