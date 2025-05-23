@@ -6,6 +6,7 @@ import { useNavigate } from 'react-router-dom';
 import Logo from '@/components/Logo';
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from '@/components/ui/dropdown-menu';
 import { GearIcon } from '@/components/ui/button';
+import { supabase } from '@/integrations/supabase/client';
 
 const privacyPolicy = `## **Privacy Policy for Ditto**
 
@@ -86,11 +87,12 @@ const PrivacyPolicy: React.FC = () => {
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={() => navigate('/profile')}>Profile</DropdownMenuItem>
                 <DropdownMenuItem onClick={() => navigate('/how-to-play')}>How to Play</DropdownMenuItem>
                 <DropdownMenuItem onClick={() => navigate('/contact')}>Contact Us</DropdownMenuItem>
                 <DropdownMenuItem onClick={() => navigate('/privacy-policy')}>Privacy Policy</DropdownMenuItem>
                 <DropdownMenuItem onClick={() => navigate('/terms-of-service')}>Terms of Service</DropdownMenuItem>
-                <DropdownMenuItem onClick={() => navigate(-1)}>Back</DropdownMenuItem>
+                <DropdownMenuItem onClick={async () => { await supabase.auth.signOut(); navigate('/auth'); }}>Log out</DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
