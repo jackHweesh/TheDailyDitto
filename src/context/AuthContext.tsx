@@ -51,7 +51,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         email,
         password,
         options: {
-          data: userData // This will be available in raw_user_meta_data
+          data: userData, // This will be available in raw_user_meta_data
+          emailRedirectTo: 'https://thedailyditto.com/auth'
         }
       });
       
