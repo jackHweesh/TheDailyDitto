@@ -19,6 +19,7 @@ import { nanoid } from 'nanoid';
 import GroupResultsView from './GroupResultsView';
 import GroupMembersPage from './GroupMembersPage';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
+import { ArrowLeft } from 'lucide-react';
 
 interface Group {
   id: string;
@@ -448,7 +449,7 @@ const GroupView: React.FC<GroupViewProps> = ({ questionId, onBack, options, ques
             onClick={handleBack} 
             className="mr-2 rounded-full p-2 bold-back-arrow"
           >
-            ←
+            <ArrowLeft className="w-9 h-9 stroke-2" />
           </Button>
           <h2 className="text-xl font-semibold text-alike-navy">My Groups</h2>
         </div>

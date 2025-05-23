@@ -6,7 +6,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { useToast } from '@/components/ui/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/context/AuthContext';
-import { Copy, Users } from 'lucide-react';
+import { Copy, Users, ArrowLeft } from 'lucide-react';
 import { PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip } from 'recharts';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
@@ -658,7 +658,7 @@ const GroupResultsView: React.FC<GroupResultsViewProps> = ({
             onClick={onBack} 
             className="mr-2 rounded-full p-2 bold-back-arrow"
           >
-            ←
+            <ArrowLeft className="w-6 h-6 stroke-2" />
           </Button>
           <h2 className="text-xl font-semibold text-alike-navy flex items-center">
             {groupName}

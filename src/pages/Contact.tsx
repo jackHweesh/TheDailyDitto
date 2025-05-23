@@ -1,45 +1,49 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { useNavigate } from 'react-router-dom';
-import Logo from '@/components/Logo';
-import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from '@/components/ui/dropdown-menu';
-import { GearIcon } from '@/components/ui/button';
+import Header from '@/components/Header';
+import { useAuth } from '@/context/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
+import { ArrowLeft } from 'lucide-react';
 
 const Contact: React.FC = () => {
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const [hasVoted, setHasVoted] = useState(false);
+
+  useEffect(() => {
+    const checkUserVote = async () => {
+      if (user) {
+        const now = new Date();
+        const yyyy = now.getFullYear();
+        const mm = String(now.getMonth() + 1).padStart(2, '0');
+        const dd = String(now.getDate()).padStart(2, '0');
+        const todayStr = `${yyyy}-${mm}-${dd}`;
+        const { data: question } = await supabase
+          .from('daily_questions')
+          .select('id')
+          .eq('active_date', todayStr)
+          .single();
+        if (question) {
+          const { data: voteData } = await supabase
+            .from('votes')
+            .select('id')
+            .eq('question_id', question.id)
+            .eq('user_id', user.id)
+            .single();
+          setHasVoted(!!voteData);
+        } else {
+          setHasVoted(false);
+        }
+      }
+    };
+    checkUserVote();
+  }, [user]);
+
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <header className="bg-white shadow">
-        <div className="max-w-7xl mx-auto px-4 py-2 sm:px-6 flex items-center justify-between">
-          <Logo />
-          <div className="flex items-center gap-2">
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  aria-label="Settings"
-                  className="text-gray-500 hover:text-gray-700 text-2xl h-8 w-8"
-                >
-                  <GearIcon className="w-full h-full" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuItem onClick={() => navigate('/profile')}>Profile</DropdownMenuItem>
-                <DropdownMenuItem onClick={() => navigate('/how-to-play')}>How to Play</DropdownMenuItem>
-                <DropdownMenuItem onClick={() => navigate('/contact')}>Contact Us</DropdownMenuItem>
-                <DropdownMenuItem onClick={() => navigate('/privacy-policy')}>Privacy Policy</DropdownMenuItem>
-                <DropdownMenuItem onClick={() => navigate('/terms-of-service')}>Terms of Service</DropdownMenuItem>
-                <DropdownMenuItem onClick={async () => { await supabase.auth.signOut(); navigate('/auth'); }}>Log out</DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
-        </div>
-      </header>
-      {/* Main content */}
+      <Header hasVoted={hasVoted} onLogoClick={() => navigate('/')} />
       <div className="flex flex-col items-center justify-center min-h-screen bg-gray-50 relative pt-0">
         <Card className="w-full max-w-xl p-8 mt-8 text-center relative">
           <div className="absolute left-4 top-4">
@@ -50,13 +54,13 @@ const Contact: React.FC = () => {
               className="text-xl font-normal"
               aria-label="Back"
             >
-              ←
+              <ArrowLeft className="w-9 h-9 stroke-2" />
             </Button>
           </div>
           <h1 className="text-2xl font-bold mb-6">Contact Us</h1>
-          <p className="text-lg text-alike-navy">
+          <p className="text-lg text-alike-navy font-semibold">
             Need to contact us? <br />
-            Email us at theofficialditto@gmail.com
+            Email us at emailthedailyditto@gmail.com
           </p>
         </Card>
       </div>

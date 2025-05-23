@@ -6,6 +6,7 @@ import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@
 import { useToast } from '@/components/ui/use-toast';
 import { useAuth } from '@/context/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
+import { ArrowLeft } from 'lucide-react';
 
 interface ProfileViewProps {
   onBack: () => void;
@@ -100,7 +101,14 @@ const ProfileView: React.FC<ProfileViewProps> = ({ onBack }) => {
   return (
     <Card className="w-full max-w-md mx-auto shadow-lg border-0 animate-fade-in">
       <CardHeader className="space-y-1 flex flex-col items-center">
-        <Button variant="ghost" size="sm" onClick={onBack} className="self-start mb-2">← Back</Button>
+        <Button 
+          variant="ghost" 
+          size="sm" 
+          onClick={onBack} 
+          className="self-start mb-2 rounded-full p-2 bold-back-arrow"
+        >
+          <ArrowLeft className="w-9 h-9 stroke-2" />
+        </Button>
         <h2 className="text-xl font-semibold text-center text-alike-navy">Edit Profile</h2>
       </CardHeader>
       <form onSubmit={handleSave}>

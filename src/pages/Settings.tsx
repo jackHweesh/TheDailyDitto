@@ -45,7 +45,7 @@ You have the right to:
 * Request deletion of your data
 * Opt out of non-essential data collection (where applicable)
 
-To exercise any of these rights, contact us at theofficialditto@gmail.com.
+To exercise any of these rights, contact us at emailthedailyditto@gmail.com.
 
 ### **5. Children's Privacy**
 
@@ -58,7 +58,7 @@ We may update this Privacy Policy from time to time. If we make any significant 
 ### **7. Contact Us**
 
 If you have any questions or concerns about this Privacy Policy, feel free to contact us at:  
-theofficialditto@gmail.com
+emailthedailyditto@gmail.com
 `;
 
 const termsOfService = `## **Terms of Service for Ditto**
@@ -118,7 +118,7 @@ We may update these Terms from time to time. When we do, we'll notify users in-a
 
 Have questions about these Terms? Contact us at:
 
-theofficialditto@gmail.com
+emailthedailyditto@gmail.com
 `;
 
 const Settings: React.FC = () => {

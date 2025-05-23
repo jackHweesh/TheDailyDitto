@@ -1,12 +1,12 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Card } from '@/components/ui/card';
 import ReactMarkdown from 'react-markdown';
 import { Button } from '@/components/ui/button';
 import { useNavigate } from 'react-router-dom';
-import Logo from '@/components/Logo';
-import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from '@/components/ui/dropdown-menu';
-import { GearIcon } from '@/components/ui/button';
+import Header from '@/components/Header';
+import { useAuth } from '@/context/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
+import { ArrowLeft } from 'lucide-react';
 
 const termsOfService = `## **Terms of Service for Ditto**
 
@@ -39,7 +39,8 @@ All content, design, code, and branding related to Ditto are owned by us or lice
 
 ### **5. Your Content**
 
-When you answer questions or share content within Ditto, you grant us a non-exclusive, royalty-free license to use that content internally for analytics and app improvement. We will never sell or share your content with third parties for commercial purposes.
+When you answer questions or share content within Ditto, you grant us a non-exclusive, royalty-free license to use that content internally for analytics, product improvement, and research purposes. We may also use and share aggregated, anonymized data derived from user content — such as usage trends or demographic insights — provided that such information does not identify you personally.
+We will never sell or share your individual content or personal information (such as your name or email) with third parties for their own commercial purposes.
 
 ### **6. Disclaimer of Warranties**
 
@@ -65,42 +66,46 @@ We may update these Terms from time to time. When we do, we'll notify users in-a
 
 Have questions about these Terms? Contact us at:
 
-theofficialditto@gmail.com
+emailthedailyditto@gmail.com
 `;
 
 const TermsOfService: React.FC = () => {
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const [hasVoted, setHasVoted] = useState(false);
+
+  useEffect(() => {
+    const checkUserVote = async () => {
+      if (user) {
+        const now = new Date();
+        const yyyy = now.getFullYear();
+        const mm = String(now.getMonth() + 1).padStart(2, '0');
+        const dd = String(now.getDate()).padStart(2, '0');
+        const todayStr = `${yyyy}-${mm}-${dd}`;
+        const { data: question } = await supabase
+          .from('daily_questions')
+          .select('id')
+          .eq('active_date', todayStr)
+          .single();
+        if (question) {
+          const { data: voteData } = await supabase
+            .from('votes')
+            .select('id')
+            .eq('question_id', question.id)
+            .eq('user_id', user.id)
+            .single();
+          setHasVoted(!!voteData);
+        } else {
+          setHasVoted(false);
+        }
+      }
+    };
+    checkUserVote();
+  }, [user]);
+
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <header className="bg-white shadow">
-        <div className="max-w-7xl mx-auto px-4 py-2 sm:px-6 flex items-center justify-between">
-          <Logo />
-          <div className="flex items-center gap-2">
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  aria-label="Settings"
-                  className="text-gray-500 hover:text-gray-700 text-2xl h-8 w-8"
-                >
-                  <GearIcon className="w-full h-full" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuItem onClick={() => navigate('/profile')}>Profile</DropdownMenuItem>
-                <DropdownMenuItem onClick={() => navigate('/how-to-play')}>How to Play</DropdownMenuItem>
-                <DropdownMenuItem onClick={() => navigate('/contact')}>Contact Us</DropdownMenuItem>
-                <DropdownMenuItem onClick={() => navigate('/privacy-policy')}>Privacy Policy</DropdownMenuItem>
-                <DropdownMenuItem onClick={() => navigate('/terms-of-service')}>Terms of Service</DropdownMenuItem>
-                <DropdownMenuItem onClick={async () => { await supabase.auth.signOut(); navigate('/auth'); }}>Log out</DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
-        </div>
-      </header>
-      {/* Main content */}
+      <Header hasVoted={hasVoted} onLogoClick={() => navigate('/')} />
       <div className="flex flex-col items-center justify-center min-h-screen bg-gray-50 relative pt-0">
         <Card className="w-full max-w-2xl p-8 mt-8 relative">
           <div className="absolute left-4 top-4">
@@ -111,7 +116,7 @@ const TermsOfService: React.FC = () => {
               className="text-xl font-normal"
               aria-label="Back"
             >
-              ←
+              <ArrowLeft className="w-6 h-6 stroke-2" />
             </Button>
           </div>
           <h1 className="text-2xl font-bold mb-6 text-center">Terms of Service</h1>

@@ -6,6 +6,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/components/ui/use-toast';
 import { useNavigate } from 'react-router-dom';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
+import { ArrowLeft } from 'lucide-react';
 
 interface GroupMembersPageProps {
   groupId: string;
@@ -317,7 +318,9 @@ const GroupMembersPage: React.FC<GroupMembersPageProps> = ({ groupId, groupName,
     <Card className="w-full max-w-3xl mx-auto shadow-lg border-0 animate-fade-in">
       <CardHeader className="space-y-1 flex flex-row items-center justify-between">
         <div className="flex items-center">
-          <Button variant="ghost" size="sm" onClick={onBack} className="mr-2 rounded-full p-2 bold-back-arrow">←</Button>
+          <Button variant="ghost" size="sm" onClick={onBack} className="mr-2 rounded-full p-2 bold-back-arrow">
+            <ArrowLeft className="w-9 h-9 stroke-2" />
+          </Button>
           <h2 className="text-xl font-semibold text-alike-navy">{groupName} Members</h2>
         </div>
       </CardHeader>

@@ -219,7 +219,18 @@ const Dashboard: React.FC = () => {
       {/* Header */}
       <header className="bg-white shadow">
         <div className="max-w-7xl mx-auto px-4 py-2 sm:px-6 flex items-center justify-between">
-          <Logo />
+          <button
+            type="button"
+            onClick={() => {
+              if (hasVoted) setCurrentView(DashboardView.RESULTS);
+            }}
+            style={{ background: 'none', border: 'none', padding: 0, cursor: hasVoted ? 'pointer' : 'default' }}
+            aria-label="Go to global results"
+            tabIndex={hasVoted ? 0 : -1}
+            disabled={!hasVoted}
+          >
+            <Logo />
+          </button>
           <div className="flex items-center gap-2">
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
