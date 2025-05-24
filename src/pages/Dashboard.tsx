@@ -50,6 +50,15 @@ const Dashboard: React.FC = () => {
     return <Navigate to="/auth" replace />;
   }
   
+  // Handle navigation state
+  useEffect(() => {
+    if (location.state?.view === 'results' && hasVoted) {
+      setCurrentView(DashboardView.RESULTS);
+    } else if (location.state?.view === 'question' || !hasVoted) {
+      setCurrentView(DashboardView.QUESTION);
+    }
+  }, [location.state, hasVoted]);
+  
   // Fetch today's question (rotating from question bank)
   useEffect(() => {
     const fetchQuestions = async () => {
@@ -295,7 +304,13 @@ const Dashboard: React.FC = () => {
             questionText={questionData.text}
           />
         ) : currentView === DashboardView.PROFILE ? (
-          <ProfileView onBack={() => setCurrentView(DashboardView.RESULTS)} />
+          <ProfileView onBack={() => {
+            if (hasVoted) {
+              setCurrentView(DashboardView.RESULTS);
+            } else {
+              setCurrentView(DashboardView.QUESTION);
+            }
+          }} />
         ) : (
           <div className="text-center">
             <p className="text-muted-foreground">No content available</p>
