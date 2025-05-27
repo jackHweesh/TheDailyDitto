@@ -6,6 +6,7 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Label } from '@/components/ui/label';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/context/AuthContext';
+import { getBrowserFingerprint } from '@/utils/fingerprint';
 
 interface QuestionProps {
   question: string;
@@ -31,25 +32,18 @@ const QuestionOfDay: React.FC<QuestionProps> = ({ question, options, questionId,
       });
       return;
     }
-
-    if (!user) {
-      toast({
-        title: "Authentication required",
-        description: "Please log in to submit your vote",
-        variant: "destructive"
-      });
-      return;
-    }
     
     setIsLoading(true);
     
     try {
+      const fingerprint = await getBrowserFingerprint();
       const { error } = await supabase
         .from('votes')
         .insert({
-          user_id: user.id,
+          user_id: user?.id || null,
           question_id: questionId,
-          selected_option: selectedOption
+          selected_option: selectedOption,
+          browser_fingerprint: !user ? fingerprint : null
         });
       
       if (error) {

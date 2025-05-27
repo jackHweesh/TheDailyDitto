@@ -1,6 +1,5 @@
-
 import React, { useState, useEffect } from 'react';
-import { Navigate } from 'react-router-dom';
+import { Navigate, useLocation } from 'react-router-dom';
 import LoginForm from '@/components/auth/LoginForm';
 import SignupForm from '@/components/auth/SignupForm';
 import ForgotPasswordForm from '@/components/auth/ForgotPasswordForm';
@@ -15,6 +14,16 @@ enum AuthView {
 const Auth: React.FC = () => {
   const [view, setView] = useState(AuthView.LOGIN);
   const { user, isLoading } = useAuth();
+  const location = useLocation();
+  
+  // Set initial view based on location state
+  useEffect(() => {
+    if (location.state?.view === 'signup') {
+      setView(AuthView.SIGNUP);
+    } else if (location.state?.view === 'login') {
+      setView(AuthView.LOGIN);
+    }
+  }, [location.state]);
   
   // If authenticated, redirect to home
   if (user && !isLoading) {

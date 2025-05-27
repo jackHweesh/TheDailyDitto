@@ -14,6 +14,7 @@ import TermsOfService from "./pages/TermsOfService";
 import Contact from "./pages/Contact";
 import HowToPlay from "./pages/HowToPlay";
 import Profile from "./pages/Profile";
+import SignupPrompt from "./components/auth/SignupPrompt";
 
 const queryClient = new QueryClient();
 
@@ -36,6 +37,7 @@ const App = () => (
             <Route path="/contact" element={<Contact />} />
             <Route path="/how-to-play" element={<HowToPlay />} />
             <Route path="/profile" element={<Profile />} />
+            <Route path="/signup-prompt" element={<SignupPrompt />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>

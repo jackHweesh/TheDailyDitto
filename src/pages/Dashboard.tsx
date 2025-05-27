@@ -11,6 +11,7 @@ import { useAuth } from '@/context/AuthContext';
 import ProfileView from '@/components/profile/ProfileView';
 import Logo from '@/components/Logo';
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from '@/components/ui/dropdown-menu';
+import { getBrowserFingerprint } from '@/utils/fingerprint';
 
 // Predefined colors for results visualization
 const RESULT_COLORS = [
@@ -36,6 +37,7 @@ const Dashboard: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [resultsLoading, setResultsLoading] = useState(false);
   const [isFirstLoad, setIsFirstLoad] = useState(true);
+  const [isVoteStatusLoading, setIsVoteStatusLoading] = useState(true);
   
   const { toast } = useToast();
   const { user, signOut } = useAuth();
@@ -45,58 +47,33 @@ const Dashboard: React.FC = () => {
   
   const latestQuestionId = useRef<string | null>(null);
   
-  // Redirect to auth if not signed in
-  if (!user) {
-    return <Navigate to="/auth" replace />;
-  }
-  
-  // Handle navigation state
-  useEffect(() => {
-    if (location.state?.view === 'results' && hasVoted) {
-      setCurrentView(DashboardView.RESULTS);
-    } else if (location.state?.view === 'question' || !hasVoted) {
-      setCurrentView(DashboardView.QUESTION);
-    }
-  }, [location.state, hasVoted]);
-  
   // Fetch today's question (rotating from question bank)
   useEffect(() => {
     const fetchQuestions = async () => {
-      setIsLoading(true);
       try {
-        // Get today's date in local timezone as YYYY-MM-DD
+        // Get today's date as YYYY-MM-DD
         const now = new Date();
         const yyyy = now.getFullYear();
         const mm = String(now.getMonth() + 1).padStart(2, '0');
         const dd = String(now.getDate()).padStart(2, '0');
         const todayStr = `${yyyy}-${mm}-${dd}`;
-        // Fetch the question for today
-        const { data: questionsData, error: questionsError } = await supabase
+
+        // Fetch today's question
+        const { data: questionData, error: questionError } = await supabase
           .from('daily_questions')
-          .select('id, question, options, active_date')
+          .select('*')
           .eq('active_date', todayStr)
           .single();
-        if (questionsError && questionsError.code !== 'PGRST116') throw questionsError;
-        if (!questionsData) {
-          setQuestionData(null);
-          setHasVoted(false);
-          setResults([]);
-          return;
+
+        if (questionError) throw questionError;
+
+        if (questionData) {
+          setQuestionData(questionData);
+          latestQuestionId.current = questionData.id;
+          await checkUserVote(questionData.id);
         }
-        const parsedOptions = typeof questionsData.options === 'string'
-          ? JSON.parse(questionsData.options)
-          : questionsData.options;
-        setQuestionData({
-          id: questionsData.id,
-          text: questionsData.question,
-          options: Array.isArray(parsedOptions) ? parsedOptions : []
-        });
-        latestQuestionId.current = questionsData.id;
-        // Check if user has voted for this question
-        await checkUserVote(questionsData.id);
-        // Always fetch results for the question
-        await fetchResults(questionsData.id);
       } catch (error: any) {
+        console.error('Error fetching questions:', error);
         toast({
           title: "Error loading question",
           description: error.message || "Could not load today's question",
@@ -106,28 +83,29 @@ const Dashboard: React.FC = () => {
         setIsLoading(false);
       }
     };
+
     const checkUserVote = async (questionId: string) => {
-      if (user) {
-        const { data: voteData, error: voteError } = await supabase
-          .from('votes')
-          .select('selected_option')
-          .eq('question_id', questionId)
-          .eq('user_id', user.id)
-          .single();
-        if (voteData) {
-          setHasVoted(true);
-          // Only set view to RESULTS on first load if user has voted
-          if (isFirstLoad) {
-            setCurrentView(DashboardView.RESULTS);
-            setIsFirstLoad(false);
-          }
-        } else {
-          setHasVoted(false);
-          // Always show question view if user hasn't voted
-          setCurrentView(DashboardView.QUESTION);
-          setIsFirstLoad(false);
-        }
+      const fingerprint = await getBrowserFingerprint();
+      let orClause = '';
+      if (user?.id) {
+        orClause = `user_id.eq.${user.id},browser_fingerprint.eq.${fingerprint}`;
+      } else {
+        orClause = `browser_fingerprint.eq.${fingerprint}`;
       }
+      const { data: voteData, error } = await supabase
+        .from('votes')
+        .select('selected_option')
+        .eq('question_id', questionId)
+        .or(orClause)
+        .limit(1);
+      const hasVoted = Array.isArray(voteData) && voteData.length > 0;
+      setHasVoted(hasVoted);
+      // Only set to results view if this is the first load and user has voted
+      if (hasVoted && isFirstLoad) {
+        setCurrentView(DashboardView.RESULTS);
+        setIsFirstLoad(false);
+      }
+      setIsVoteStatusLoading(false);
     };
     fetchQuestions();
   }, [user, toast]);
@@ -253,12 +231,16 @@ const Dashboard: React.FC = () => {
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
-                <DropdownMenuItem onClick={() => setCurrentView(DashboardView.PROFILE)}>Profile</DropdownMenuItem>
+                {user && <DropdownMenuItem onClick={() => setCurrentView(DashboardView.PROFILE)}>Profile</DropdownMenuItem>}
                 <DropdownMenuItem onClick={() => navigate('/how-to-play')}>How to Play</DropdownMenuItem>
                 <DropdownMenuItem onClick={() => navigate('/contact')}>Contact Us</DropdownMenuItem>
                 <DropdownMenuItem onClick={() => navigate('/privacy-policy')}>Privacy Policy</DropdownMenuItem>
                 <DropdownMenuItem onClick={() => navigate('/terms-of-service')}>Terms of Service</DropdownMenuItem>
-                <DropdownMenuItem onClick={handleSignOut}>Log out</DropdownMenuItem>
+                {user ? (
+                  <DropdownMenuItem onClick={handleSignOut}>Log out</DropdownMenuItem>
+                ) : (
+                  <DropdownMenuItem onClick={() => navigate('/auth')}>Log in</DropdownMenuItem>
+                )}
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
@@ -267,27 +249,19 @@ const Dashboard: React.FC = () => {
       
       {/* Main content */}
       <main className="container mx-auto px-4 py-8">
-        {isLoading ? (
+        {isLoading || isVoteStatusLoading ? (
           <div className="flex justify-center items-center h-64">
             <p className="text-muted-foreground">Loading...</p>
           </div>
-        ) : currentView === DashboardView.QUESTION && questionData ? (
-          hasVoted ? (
-            <ResultsView
-              question={questionData.text}
-              results={results}
-              onViewGroups={() => setCurrentView(DashboardView.GROUPS)}
-              isLoading={resultsLoading}
-              onRefresh={() => fetchResults(questionData.id)}
-            />
-          ) : (
-            <QuestionOfDay 
-              question={questionData.text}
-              options={questionData.options}
-              questionId={questionData.id}
-              onVoteSubmit={handleVoteSubmit}
-            />
-          )
+        ) : currentView === DashboardView.GROUPS && questionData ? (
+          <GroupView 
+            questionId={questionData.id}
+            onBack={() => setCurrentView(hasVoted ? DashboardView.RESULTS : DashboardView.QUESTION)}
+            options={questionData.options}
+            questionText={questionData.text}
+          />
+        ) : currentView === DashboardView.PROFILE ? (
+          <ProfileView onBack={() => setCurrentView(hasVoted ? DashboardView.RESULTS : DashboardView.QUESTION)} />
         ) : currentView === DashboardView.RESULTS && questionData ? (
           <ResultsView
             question={questionData.text}
@@ -296,21 +270,13 @@ const Dashboard: React.FC = () => {
             isLoading={resultsLoading}
             onRefresh={() => fetchResults(questionData.id)}
           />
-        ) : currentView === DashboardView.GROUPS && questionData ? (
-          <GroupView 
-            questionId={questionData.id}
-            onBack={handleGroupsBack}
+        ) : currentView === DashboardView.QUESTION && questionData ? (
+          <QuestionOfDay 
+            question={questionData.text}
             options={questionData.options}
-            questionText={questionData.text}
+            questionId={questionData.id}
+            onVoteSubmit={handleVoteSubmit}
           />
-        ) : currentView === DashboardView.PROFILE ? (
-          <ProfileView onBack={() => {
-            if (hasVoted) {
-              setCurrentView(DashboardView.RESULTS);
-            } else {
-              setCurrentView(DashboardView.QUESTION);
-            }
-          }} />
         ) : (
           <div className="text-center">
             <p className="text-muted-foreground">No content available</p>

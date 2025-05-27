@@ -6,6 +6,9 @@ import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
 import { format, parse, isSameDay } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/context/AuthContext';
+import SignupPrompt from '@/components/auth/SignupPrompt';
+import { useNavigate } from 'react-router-dom';
 
 interface ResultsViewProps {
   question: string;
@@ -33,6 +36,8 @@ const ResultsView: React.FC<ResultsViewProps> = ({
   const [viewingQuestion, setViewingQuestion] = React.useState<any | null>(null);
   const [viewingResults, setViewingResults] = React.useState<any[]>(results);
   const [isHistorical, setIsHistorical] = React.useState(false);
+  const { user } = useAuth();
+  const navigate = useNavigate();
 
   React.useEffect(() => {
     // Fetch all questions for calendar
@@ -187,7 +192,13 @@ const ResultsView: React.FC<ResultsViewProps> = ({
               </ResponsiveContainer>
             </div>
             <Button 
-              onClick={onViewGroups}
+              onClick={() => {
+                if (user) {
+                  onViewGroups();
+                } else {
+                  navigate('/signup-prompt');
+                }
+              }}
               className="w-full bg-alike-navy hover:bg-alike-navy/90 text-white rounded-md h-12 mt-4"
             >
               View My Groups

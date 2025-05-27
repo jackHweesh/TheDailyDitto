@@ -83,11 +83,7 @@ const SignupForm: React.FC<SignupFormProps> = ({ onSwitchToLogin }) => {
       // Sign up using the AuthContext
       await signUp(email, password, userData);
 
-      toast({
-        title: "Sign-up successful",
-        description: "Welcome to Ditto! Please check your email to confirm your account.",
-      });
-      
+      // After successful signup, switch to login view
       onSwitchToLogin();
     } catch (error: any) {
       console.error('Signup error:', error);

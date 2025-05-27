@@ -2,18 +2,26 @@ import React, { createContext, useContext, useEffect, useState } from 'react';
 import { Session, User } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/components/ui/use-toast';
+import { PostgrestBuilder } from '@supabase/postgrest-js';
 
 interface AuthContextType {
   user: User | null;
   session: Session | null;
   isLoading: boolean;
-  signUp: (email: string, password: string, userData: any) => Promise<void>;
+  signUp: (email: string, password: string, userData: any) => Promise<{ success: boolean; voteTransferred: boolean }>;
   signIn: (email: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
   resetPassword: (email: string) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
+
+interface VoteData {
+  id: string;
+  selected_option: string;
+  question_id: string;
+  created_at: string;
+}
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [session, setSession] = useState<Session | null>(null);
@@ -58,10 +66,134 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       
       if (error) throw error;
 
+      // --- Begin carry-over anonymous vote logic ---
+      let voteTransferred = false;
+      try {
+        // 1. Get browser fingerprint
+        const { getBrowserFingerprint } = await import('@/utils/fingerprint');
+        const fingerprint = await getBrowserFingerprint();
+        console.log('Browser fingerprint:', fingerprint);
+
+        // 2. Get today's date as YYYY-MM-DD
+        const now = new Date();
+        const yyyy = now.getFullYear();
+        const mm = String(now.getMonth() + 1).padStart(2, '0');
+        const dd = String(now.getDate()).padStart(2, '0');
+        const todayStr = `${yyyy}-${mm}-${dd}`;
+        console.log('Today\'s date:', todayStr);
+
+        // 3. Fetch today's question
+        const { data: questionData, error: questionError }: { data: any, error: any } = await supabase
+          .from('daily_questions')
+          .select('id')
+          .eq('active_date', todayStr)
+          .single();
+        
+        console.log('Question data:', questionData);
+        console.log('Question error:', questionError);
+
+        if (questionError || !questionData) {
+          console.log('No question found for today');
+        } else {
+          // 4. Look for anonymous vote for today
+          console.log('Searching for anonymous vote with:', {
+            questionId: questionData.id,
+            fingerprint,
+            userId: null
+          });
+
+          const { data: voteData, error: voteError } = await (supabase
+            .from('votes')
+            .select('id, selected_option, question_id, created_at')
+            .eq('question_id', questionData.id)
+            .eq('browser_fingerprint', fingerprint)
+            .is('user_id', null)
+            .single() as PostgrestBuilder<any>);
+
+          console.log('Anonymous vote data:', voteData);
+          console.log('Anonymous vote error:', voteError);
+
+          if (!voteError && voteData && data?.user?.id) {
+            console.log('Found anonymous vote, creating user vote for user:', data.user.id);
+            
+            // 5. Create a new vote for the user with the same selection
+            const newVote = {
+              user_id: data.user.id,
+              question_id: voteData.question_id,
+              selected_option: voteData.selected_option,
+              created_at: voteData.created_at // Preserve original vote time
+            };
+            
+            console.log('Attempting to create new vote:', newVote);
+            
+            const { data: insertData, error: insertError } = await supabase
+              .from('votes')
+              .insert(newVote)
+              .select()
+              .single();
+            
+            console.log('Insert result:', { data: insertData, error: insertError });
+
+            if (!insertError) {
+              console.log('Successfully created user vote, deleting anonymous vote:', voteData.id);
+              
+              // 6. Delete the anonymous vote
+              const { data: deleteData, error: deleteError } = await supabase
+                .from('votes')
+                .delete()
+                .eq('id', voteData.id)
+                .select();
+              
+              console.log('Delete result:', { data: deleteData, error: deleteError });
+
+              if (!deleteError) {
+                // Verify the vote was deleted
+                const { data: verifyData, error: verifyError } = await supabase
+                  .from('votes')
+                  .select('id')
+                  .eq('id', voteData.id)
+                  .single();
+                
+                console.log('Verification after delete:', { data: verifyData, error: verifyError });
+                
+                if (!verifyError || verifyError.code === 'PGRST116') {
+                  voteTransferred = true;
+                  console.log('Successfully transferred vote and verified deletion');
+                } else {
+                  console.error('Error verifying vote deletion:', verifyError);
+                }
+              } else {
+                console.error('Error deleting anonymous vote:', deleteError);
+                // If delete fails, try to rollback the insert
+                if (insertData?.id) {
+                  const { error: rollbackError } = await supabase
+                    .from('votes')
+                    .delete()
+                    .eq('id', insertData.id);
+                  console.log('Rollback result:', { error: rollbackError });
+                }
+              }
+            } else {
+              console.error('Error creating user vote:', insertError);
+            }
+          } else if (voteError && voteError.code !== 'PGRST116') {
+            console.error('Error finding anonymous vote:', voteError);
+          } else {
+            console.log('No anonymous vote found or no user ID available');
+          }
+        }
+      } catch (carryError) {
+        console.error('Error in vote transfer process:', carryError);
+      }
+      // --- End carry-over anonymous vote logic ---
+
       toast({
-        title: "Sign up successful",
+        title: "Verify Your Email",
         description: "Please check your email to confirm your account.",
+        duration: 9000,
       });
+
+      return { success: true, voteTransferred };
     } catch (error: any) {
       console.error('Signup error:', error);
       toast({
