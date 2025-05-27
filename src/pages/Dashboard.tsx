@@ -46,10 +46,35 @@ const Dashboard: React.FC = () => {
   const { groupId } = useParams();
   
   const latestQuestionId = useRef<string | null>(null);
-  
-  // Fetch today's question (rotating from question bank)
+
+  // Helper function to check if the user has voted
+  const checkUserVote = async (questionId: string, userId: string | null, fingerprint: string) => {
+    // If user is logged in, only check their user_id votes
+    if (userId) {
+      const { data: userVoteData } = await supabase
+        .from('votes')
+        .select('selected_option')
+        .eq('question_id', questionId)
+        .eq('user_id', userId)
+        .limit(1);
+      return Array.isArray(userVoteData) && userVoteData.length > 0;
+    }
+    
+    // If user is not logged in, check anonymous vote
+    const { data: anonVoteData } = await supabase
+      .from('votes')
+      .select('selected_option')
+      .eq('question_id', questionId)
+      .eq('browser_fingerprint', fingerprint)
+      .is('user_id', null)
+      .limit(1);
+    return Array.isArray(anonVoteData) && anonVoteData.length > 0;
+  };
+
   useEffect(() => {
-    const fetchQuestions = async () => {
+    const fetchData = async () => {
+      setIsLoading(true);
+      setIsVoteStatusLoading(true);
       try {
         // Get today's date as YYYY-MM-DD
         const now = new Date();
@@ -57,20 +82,32 @@ const Dashboard: React.FC = () => {
         const mm = String(now.getMonth() + 1).padStart(2, '0');
         const dd = String(now.getDate()).padStart(2, '0');
         const todayStr = `${yyyy}-${mm}-${dd}`;
-
         // Fetch today's question
         const { data: questionData, error: questionError } = await supabase
           .from('daily_questions')
           .select('*')
           .eq('active_date', todayStr)
           .single();
-
         if (questionError) throw questionError;
-
         if (questionData) {
+          const isNewQuestion = latestQuestionId.current !== questionData.id;
           setQuestionData(questionData);
           latestQuestionId.current = questionData.id;
-          await checkUserVote(questionData.id);
+          // Get fingerprint
+          const fingerprint = await getBrowserFingerprint();
+          // Check vote
+          const voted = await checkUserVote(questionData.id, user?.id ?? null, fingerprint);
+          setHasVoted(voted);
+
+          // Set initial view or handle new question
+          if (isFirstLoad || isNewQuestion) {
+            if (!voted) {
+              setCurrentView(DashboardView.QUESTION);
+            } else {
+              setCurrentView(DashboardView.RESULTS);
+            }
+            setIsFirstLoad(false);
+          }
         }
       } catch (error: any) {
         console.error('Error fetching questions:', error);
@@ -81,33 +118,11 @@ const Dashboard: React.FC = () => {
         });
       } finally {
         setIsLoading(false);
+        setIsVoteStatusLoading(false);
       }
     };
-
-    const checkUserVote = async (questionId: string) => {
-      const fingerprint = await getBrowserFingerprint();
-      let orClause = '';
-      if (user?.id) {
-        orClause = `user_id.eq.${user.id},browser_fingerprint.eq.${fingerprint}`;
-      } else {
-        orClause = `browser_fingerprint.eq.${fingerprint}`;
-      }
-      const { data: voteData, error } = await supabase
-        .from('votes')
-        .select('selected_option')
-        .eq('question_id', questionId)
-        .or(orClause)
-        .limit(1);
-      const hasVoted = Array.isArray(voteData) && voteData.length > 0;
-      setHasVoted(hasVoted);
-      // Only set to results view if this is the first load and user has voted
-      if (hasVoted && isFirstLoad) {
-        setCurrentView(DashboardView.RESULTS);
-        setIsFirstLoad(false);
-      }
-      setIsVoteStatusLoading(false);
-    };
-    fetchQuestions();
+    fetchData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, toast]);
   
   // Fetch results when user has voted or on refresh
@@ -200,6 +215,13 @@ const Dashboard: React.FC = () => {
     setCurrentView(DashboardView.RESULTS);
     navigate('/');
   };
+
+  // Guard: If user hasn't voted, never allow results or groups view
+  useEffect(() => {
+    if (!isVoteStatusLoading && !hasVoted && (currentView === DashboardView.RESULTS || currentView === DashboardView.GROUPS)) {
+      setCurrentView(DashboardView.QUESTION);
+    }
+  }, [currentView, hasVoted, isVoteStatusLoading]);
 
   return (
     <div className="min-h-screen bg-gray-50">
