@@ -280,13 +280,13 @@ const Dashboard: React.FC = () => {
             questionId={questionData.id}
             onBack={() => setCurrentView(hasVoted ? DashboardView.RESULTS : DashboardView.QUESTION)}
             options={questionData.options}
-            questionText={questionData.text}
+            questionText={questionData.question}
           />
         ) : currentView === DashboardView.PROFILE ? (
           <ProfileView onBack={() => setCurrentView(hasVoted ? DashboardView.RESULTS : DashboardView.QUESTION)} />
         ) : currentView === DashboardView.RESULTS && questionData ? (
           <ResultsView
-            question={questionData.text}
+            question={questionData.question}
             results={results}
             onViewGroups={() => setCurrentView(DashboardView.GROUPS)}
             isLoading={resultsLoading}
@@ -294,7 +294,7 @@ const Dashboard: React.FC = () => {
           />
         ) : currentView === DashboardView.QUESTION && questionData ? (
           <QuestionOfDay 
-            question={questionData.text}
+            question={questionData.question}
             options={questionData.options}
             questionId={questionData.id}
             onVoteSubmit={handleVoteSubmit}
