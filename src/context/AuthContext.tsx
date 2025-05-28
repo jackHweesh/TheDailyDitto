@@ -207,11 +207,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const signIn = async (email: string, password: string) => {
     try {
-      const { error } = await supabase.auth.signInWithPassword({
+      const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password,
       });
+      
       if (error) throw error;
+
+      // Check if email is verified
+      if (!data.user?.email_confirmed_at) {
+        // Sign out the user since they haven't verified their email
+        await supabase.auth.signOut();
+        throw new Error("Please verify your email before logging in. Check your inbox for the verification link.");
+      }
     } catch (error: any) {
       toast({
         title: "Login error",

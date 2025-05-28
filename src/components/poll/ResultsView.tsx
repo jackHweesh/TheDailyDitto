@@ -201,7 +201,7 @@ const ResultsView: React.FC<ResultsViewProps> = ({
               }}
               className="w-full bg-alike-navy hover:bg-alike-navy/90 text-white rounded-md h-12 mt-4"
             >
-              View My Groups
+              {user ? "View My Groups" : "View Groups and Stats"}
             </Button>
           </>
         )}
