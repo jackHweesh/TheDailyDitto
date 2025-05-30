@@ -58,6 +58,11 @@ const Auth: React.FC = () => {
   return (
     <div className="flex min-h-screen items-center justify-center p-4 bg-gray-50">
       {renderAuthComponent()}
+      <footer className="bg-white border-t w-full absolute bottom-0 left-0">
+        <div className="max-w-7xl mx-auto px-4 py-4 sm:px-6 text-center">
+          <p className="text-sm text-muted-foreground">© {new Date().getFullYear()} TheDailyDitto. All rights reserved.</p>
+        </div>
+      </footer>
     </div>
   );
 };

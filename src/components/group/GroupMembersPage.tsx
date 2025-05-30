@@ -19,6 +19,8 @@ interface Member {
   id: string;
   name: string;
   alike: number;
+  alikeCount: number;
+  totalCount: number;
   status: string;
 }
 
@@ -111,6 +113,8 @@ const GroupMembersPage: React.FC<GroupMembersPageProps> = ({ groupId, groupName,
             id,
             name: nameMap[id] || 'Unknown',
             alike: total > 0 ? Math.round((alike / total) * 100) : 0,
+            alikeCount: alike,
+            totalCount: total,
             status: m.status,
           };
         });
@@ -354,6 +358,10 @@ const GroupMembersPage: React.FC<GroupMembersPageProps> = ({ groupId, groupName,
                     <span className="font-medium text-alike-navy">
                       {m.name}
                       {m.status === 'owner' && ' (Owner)'}
+                      <br />
+                      <span className="text-xs text-muted-foreground font-normal" style={{ fontSize: '0.85em' }}>
+                        {m.totalCount > 0 ? `${m.alikeCount}/${m.totalCount} questions` : '0/0 questions'}
+                      </span>
                     </span>
                     <span className="text-alike-teal font-semibold">{m.alike}% alike</span>
                   </li>

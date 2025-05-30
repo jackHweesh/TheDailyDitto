@@ -42,7 +42,7 @@ const Profile: React.FC = () => {
   }, [user]);
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div>
       <Header hasVoted={hasVoted} onLogoClick={() => navigate('/')} />
       <ProfileView onBack={() => navigate(-1)} />
     </div>

@@ -224,7 +224,7 @@ const Dashboard: React.FC = () => {
   }, [currentView, hasVoted, isVoteStatusLoading]);
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 flex flex-col">
       {/* Header */}
       <header className="bg-white shadow">
         <div className="max-w-7xl mx-auto px-4 py-2 sm:px-6 flex items-center justify-between">
@@ -270,40 +270,42 @@ const Dashboard: React.FC = () => {
       </header>
       
       {/* Main content */}
-      <main className="container mx-auto px-4 py-8">
-        {isLoading || isVoteStatusLoading ? (
-          <div className="flex justify-center items-center h-64">
-            <p className="text-muted-foreground">Loading...</p>
-          </div>
-        ) : currentView === DashboardView.GROUPS && questionData ? (
-          <GroupView 
-            questionId={questionData.id}
-            onBack={() => setCurrentView(hasVoted ? DashboardView.RESULTS : DashboardView.QUESTION)}
-            options={questionData.options}
-            questionText={questionData.question}
-          />
-        ) : currentView === DashboardView.PROFILE ? (
-          <ProfileView onBack={() => setCurrentView(hasVoted ? DashboardView.RESULTS : DashboardView.QUESTION)} />
-        ) : currentView === DashboardView.RESULTS && questionData ? (
-          <ResultsView
-            question={questionData.question}
-            results={results}
-            onViewGroups={() => setCurrentView(DashboardView.GROUPS)}
-            isLoading={resultsLoading}
-            onRefresh={() => fetchResults(questionData.id)}
-          />
-        ) : currentView === DashboardView.QUESTION && questionData ? (
-          <QuestionOfDay 
-            question={questionData.question}
-            options={questionData.options}
-            questionId={questionData.id}
-            onVoteSubmit={handleVoteSubmit}
-          />
-        ) : (
-          <div className="text-center">
-            <p className="text-muted-foreground">No content available</p>
-          </div>
-        )}
+      <main className="flex-1 flex flex-col">
+        <div className="container mx-auto px-4 py-8 flex-1 flex flex-col">
+          {isLoading || isVoteStatusLoading ? (
+            <div className="flex justify-center items-center h-64">
+              <p className="text-muted-foreground">Loading...</p>
+            </div>
+          ) : currentView === DashboardView.GROUPS && questionData ? (
+            <GroupView 
+              questionId={questionData.id}
+              onBack={() => setCurrentView(hasVoted ? DashboardView.RESULTS : DashboardView.QUESTION)}
+              options={questionData.options}
+              questionText={questionData.question}
+            />
+          ) : currentView === DashboardView.PROFILE ? (
+            <ProfileView onBack={() => setCurrentView(hasVoted ? DashboardView.RESULTS : DashboardView.QUESTION)} />
+          ) : currentView === DashboardView.RESULTS && questionData ? (
+            <ResultsView
+              question={questionData.question}
+              results={results}
+              onViewGroups={() => setCurrentView(DashboardView.GROUPS)}
+              isLoading={resultsLoading}
+              onRefresh={() => fetchResults(questionData.id)}
+            />
+          ) : currentView === DashboardView.QUESTION && questionData ? (
+            <QuestionOfDay 
+              question={questionData.question}
+              options={questionData.options}
+              questionId={questionData.id}
+              onVoteSubmit={handleVoteSubmit}
+            />
+          ) : (
+            <div className="text-center">
+              <p className="text-muted-foreground">No content available</p>
+            </div>
+          )}
+        </div>
       </main>
       
       {/* Footer */}

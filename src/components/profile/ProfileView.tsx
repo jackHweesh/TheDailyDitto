@@ -99,99 +99,101 @@ const ProfileView: React.FC<ProfileViewProps> = ({ onBack }) => {
   };
 
   return (
-    <Card className="w-full max-w-md mx-auto shadow-lg border-0 animate-fade-in">
-      <CardHeader className="space-y-1 flex flex-col items-center">
-        <Button 
-          variant="ghost" 
-          size="sm" 
-          onClick={onBack} 
-          className="self-start mb-2 rounded-full p-2 bold-back-arrow"
-        >
-          <ArrowLeft className="w-9 h-9 stroke-2" />
-        </Button>
-        <h2 className="text-xl font-semibold text-center text-alike-navy">Edit Profile</h2>
-      </CardHeader>
-      <form onSubmit={handleSave}>
-        <CardContent className="space-y-4">
-          <div className="space-y-2">
-            <Input
-              type="email"
-              placeholder="Email address"
-              value={email}
-              disabled
-              className="rounded-md h-12"
-            />
-          </div>
-          <div className="space-y-2">
-            <Input
-              type="text"
-              placeholder="First Name"
-              value={firstName}
-              onChange={(e) => setFirstName(e.target.value)}
-              className="rounded-md h-12"
-              required
-              disabled={isLoading}
-            />
-          </div>
-          <div className="space-y-2">
-            <Input
-              type="text"
-              placeholder="Last Name"
-              value={lastName}
-              onChange={(e) => setLastName(e.target.value)}
-              className="rounded-md h-12"
-              disabled={isLoading}
-            />
-          </div>
-          <div className="space-y-2">
-            <Input
-              type="number"
-              placeholder="Age"
-              value={age}
-              onChange={(e) => setAge(e.target.value)}
-              className="rounded-md h-12"
-              min={1}
-              max={120}
-              required
-              disabled={isLoading}
-            />
-          </div>
-          <div className="space-y-2">
-            <Select value={country} onValueChange={setCountry} disabled={isLoading} required>
-              <SelectTrigger className="rounded-md h-12">
-                <SelectValue placeholder="Country" />
-              </SelectTrigger>
-              <SelectContent>
-                {countryList.map((c) => (
-                  <SelectItem key={c} value={c}>{c}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          {country === 'United States' && (
+    <div className="flex flex-col items-center min-h-screen bg-gray-50 relative pt-0">
+      <Card className="w-full max-w-xl p-8 text-center relative shadow-lg border-0 animate-fade-in">
+        <CardHeader className="space-y-1 flex flex-col items-center">
+          <Button 
+            variant="ghost" 
+            size="sm" 
+            onClick={onBack} 
+            className="self-start mb-2 rounded-full p-2 bold-back-arrow"
+          >
+            <ArrowLeft className="w-9 h-9 stroke-2" />
+          </Button>
+          <h2 className="text-xl font-semibold text-center text-alike-navy">Edit Profile</h2>
+        </CardHeader>
+        <form onSubmit={handleSave}>
+          <CardContent className="space-y-4">
             <div className="space-y-2">
-              <Select value={state} onValueChange={setState} disabled={isLoading} required>
+              <Input
+                type="email"
+                placeholder="Email address"
+                value={email}
+                disabled
+                className="rounded-md h-12"
+              />
+            </div>
+            <div className="space-y-2">
+              <Input
+                type="text"
+                placeholder="First Name"
+                value={firstName}
+                onChange={(e) => setFirstName(e.target.value)}
+                className="rounded-md h-12"
+                required
+                disabled={isLoading}
+              />
+            </div>
+            <div className="space-y-2">
+              <Input
+                type="text"
+                placeholder="Last Name"
+                value={lastName}
+                onChange={(e) => setLastName(e.target.value)}
+                className="rounded-md h-12"
+                disabled={isLoading}
+              />
+            </div>
+            <div className="space-y-2">
+              <Input
+                type="number"
+                placeholder="Age"
+                value={age}
+                onChange={(e) => setAge(e.target.value)}
+                className="rounded-md h-12"
+                min={1}
+                max={120}
+                required
+                disabled={isLoading}
+              />
+            </div>
+            <div className="space-y-2">
+              <Select value={country} onValueChange={setCountry} disabled={isLoading} required>
                 <SelectTrigger className="rounded-md h-12">
-                  <SelectValue placeholder="US State" />
+                  <SelectValue placeholder="Country" />
                 </SelectTrigger>
                 <SelectContent>
-                  {usStates.map((usState) => (
-                    <SelectItem key={usState} value={usState}>{usState}</SelectItem>
+                  {countryList.map((c) => (
+                    <SelectItem key={c} value={c}>{c}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
-          )}
-          <Button
-            type="submit"
-            className="w-full bg-alike-teal hover:bg-alike-teal/90 text-white rounded-md h-12 mt-4"
-            disabled={isLoading}
-          >
-            {isLoading ? 'Saving...' : 'Save Changes'}
-          </Button>
-        </CardContent>
-      </form>
-    </Card>
+            {country === 'United States' && (
+              <div className="space-y-2">
+                <Select value={state} onValueChange={setState} disabled={isLoading} required>
+                  <SelectTrigger className="rounded-md h-12">
+                    <SelectValue placeholder="US State" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {usStates.map((usState) => (
+                      <SelectItem key={usState} value={usState}>{usState}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+            <Button
+              type="submit"
+              className="w-full bg-alike-teal hover:bg-alike-teal/90 text-white rounded-md h-12 mt-4"
+              disabled={isLoading}
+            >
+              {isLoading ? 'Saving...' : 'Save Changes'}
+            </Button>
+          </CardContent>
+        </form>
+      </Card>
+    </div>
   );
 };
 

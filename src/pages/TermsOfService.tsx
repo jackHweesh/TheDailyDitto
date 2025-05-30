@@ -125,6 +125,11 @@ const TermsOfService: React.FC = () => {
           </div>
         </Card>
       </div>
+      <footer className="bg-white border-t">
+        <div className="max-w-7xl mx-auto px-4 py-4 sm:px-6 text-center">
+          <p className="text-sm text-muted-foreground">© {new Date().getFullYear()} TheDailyDitto. All rights reserved.</p>
+        </div>
+      </footer>
     </div>
   );
 };
