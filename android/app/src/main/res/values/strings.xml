@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Ditto</string>
+    <string name="title_activity_main">Ditto</string>
+    <string name="package_name">com.thedailyditto.ditto</string>
+    <string name="custom_url_scheme">com.thedailyditto.ditto</string>
+</resources>

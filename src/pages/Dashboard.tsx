@@ -223,16 +223,20 @@ const Dashboard: React.FC = () => {
     }
   }, [currentView, hasVoted, isVoteStatusLoading]);
 
+  // Guard: If user has already voted, never allow voting screen
+  useEffect(() => {
+    if (!isVoteStatusLoading && hasVoted && currentView === DashboardView.QUESTION) {
+      setCurrentView(DashboardView.RESULTS);
+    }
+  }, [hasVoted, currentView, isVoteStatusLoading]);
+
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col">
-      {/* Header */}
+    <div className="min-h-screen flex flex-col">
       <header className="bg-white shadow">
         <div className="max-w-7xl mx-auto px-4 py-2 sm:px-6 flex items-center justify-between">
           <button
             type="button"
-            onClick={() => {
-              if (hasVoted) setCurrentView(DashboardView.RESULTS);
-            }}
+            onClick={() => { if (hasVoted) setCurrentView(DashboardView.RESULTS); }}
             style={{ background: 'none', border: 'none', padding: 0, cursor: hasVoted ? 'pointer' : 'default' }}
             aria-label="Go to global results"
             tabIndex={hasVoted ? 0 : -1}
@@ -309,7 +313,7 @@ const Dashboard: React.FC = () => {
       </main>
       
       {/* Footer */}
-      <footer className="bg-white border-t">
+      <footer className="bg-white border-t mt-auto">
         <div className="max-w-7xl mx-auto px-4 py-4 sm:px-6 text-center">
           <p className="text-sm text-muted-foreground">© {new Date().getFullYear()} TheDailyDitto. All rights reserved.</p>
         </div>

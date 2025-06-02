@@ -10,7 +10,7 @@ const SignupPrompt: React.FC = () => {
   const navigate = useNavigate();
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen flex flex-col bg-gray-50">
       {/* Header */}
       <header className="bg-white shadow">
         <div className="max-w-7xl mx-auto px-4 py-2 sm:px-6 flex items-center justify-between">
@@ -46,7 +46,7 @@ const SignupPrompt: React.FC = () => {
         </div>
       </header>
 
-      <div className="container mx-auto px-4 py-8">
+      <div className="flex-1 container mx-auto px-4 py-8 flex items-center justify-center">
         <Card className="w-full max-w-md mx-auto shadow-lg border-0">
           <CardHeader className="space-y-1 flex flex-col items-center">
             <h2 className="text-2xl font-bold text-center text-alike-navy mt-6">
@@ -77,6 +77,11 @@ const SignupPrompt: React.FC = () => {
           </CardFooter>
         </Card>
       </div>
+      <footer className="bg-white border-t w-full">
+        <div className="max-w-7xl mx-auto px-4 py-4 sm:px-6 text-center">
+          <p className="text-sm text-muted-foreground">© {new Date().getFullYear()} TheDailyDitto. All rights reserved.</p>
+        </div>
+      </footer>
     </div>
   );
 };
