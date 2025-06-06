@@ -12,6 +12,7 @@ import ProfileView from '@/components/profile/ProfileView';
 import Logo from '@/components/Logo';
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from '@/components/ui/dropdown-menu';
 import { getBrowserFingerprint } from '@/utils/fingerprint';
+import { Capacitor } from '@capacitor/core';
 
 // Predefined colors for results visualization
 const RESULT_COLORS = [
@@ -46,6 +47,7 @@ const Dashboard: React.FC = () => {
   const { groupId } = useParams();
   
   const latestQuestionId = useRef<string | null>(null);
+  const isNative = Capacitor.isNativePlatform();
 
   // Helper function to check if the user has voted
   const checkUserVote = async (questionId: string, userId: string | null, fingerprint: string) => {
@@ -99,15 +101,14 @@ const Dashboard: React.FC = () => {
           const voted = await checkUserVote(questionData.id, user?.id ?? null, fingerprint);
           setHasVoted(voted);
 
-          // Set initial view or handle new question
-          if (isFirstLoad || isNewQuestion) {
-            if (!voted) {
-              setCurrentView(DashboardView.QUESTION);
-            } else {
-              setCurrentView(DashboardView.RESULTS);
-            }
-            setIsFirstLoad(false);
+          // Set initial view based on vote status
+          if (voted) {
+            setCurrentView(DashboardView.RESULTS);
+            await fetchResults(questionData.id);
+          } else {
+            setCurrentView(DashboardView.QUESTION);
           }
+          setIsFirstLoad(false);
         }
       } catch (error: any) {
         console.error('Error fetching questions:', error);
@@ -122,7 +123,6 @@ const Dashboard: React.FC = () => {
       }
     };
     fetchData();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, toast]);
   
   // Fetch results when user has voted or on refresh
@@ -216,6 +216,16 @@ const Dashboard: React.FC = () => {
     navigate('/');
   };
 
+  // Guard: If user has already voted, never allow voting screen
+  useEffect(() => {
+    if (!isVoteStatusLoading && hasVoted && currentView === DashboardView.QUESTION) {
+      setCurrentView(DashboardView.RESULTS);
+      if (questionData) {
+        fetchResults(questionData.id);
+      }
+    }
+  }, [hasVoted, currentView, isVoteStatusLoading, questionData]);
+
   // Guard: If user hasn't voted, never allow results or groups view
   useEffect(() => {
     if (!isVoteStatusLoading && !hasVoted && (currentView === DashboardView.RESULTS || currentView === DashboardView.GROUPS)) {
@@ -223,16 +233,9 @@ const Dashboard: React.FC = () => {
     }
   }, [currentView, hasVoted, isVoteStatusLoading]);
 
-  // Guard: If user has already voted, never allow voting screen
-  useEffect(() => {
-    if (!isVoteStatusLoading && hasVoted && currentView === DashboardView.QUESTION) {
-      setCurrentView(DashboardView.RESULTS);
-    }
-  }, [hasVoted, currentView, isVoteStatusLoading]);
-
   return (
     <div className="min-h-screen flex flex-col">
-      <header className="bg-white shadow">
+      <header className="fixed-header bg-white shadow">
         <div className="max-w-7xl mx-auto px-4 py-2 sm:px-6 flex items-center justify-between">
           <button
             type="button"
@@ -256,7 +259,7 @@ const Dashboard: React.FC = () => {
                   <GearIcon className="w-full h-full" />
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
+              <DropdownMenuContent align="end" className={isNative ? 'dropdown-menu-native' : ''}>
                 {user && <DropdownMenuItem onClick={() => setCurrentView(DashboardView.PROFILE)}>Profile</DropdownMenuItem>}
                 <DropdownMenuItem onClick={() => navigate('/how-to-play')}>How to Play</DropdownMenuItem>
                 <DropdownMenuItem onClick={() => navigate('/contact')}>Contact Us</DropdownMenuItem>
@@ -274,7 +277,7 @@ const Dashboard: React.FC = () => {
       </header>
       
       {/* Main content */}
-      <main className="flex-1 flex flex-col">
+      <main className="content-area flex-1 flex flex-col">
         <div className="container mx-auto px-4 py-8 flex-1 flex flex-col">
           {isLoading || isVoteStatusLoading ? (
             <div className="flex justify-center items-center h-64">
@@ -313,7 +316,7 @@ const Dashboard: React.FC = () => {
       </main>
       
       {/* Footer */}
-      <footer className="bg-white border-t mt-auto">
+      <footer className="fixed-footer bg-white border-t w-full">
         <div className="max-w-7xl mx-auto px-4 py-4 sm:px-6 text-center">
           <p className="text-sm text-muted-foreground">© {new Date().getFullYear()} TheDailyDitto. All rights reserved.</p>
         </div>

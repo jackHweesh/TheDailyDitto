@@ -1,0 +1,66 @@
+/* Mobile-specific styles */
+@media (max-width: 768px) {
+  :root {
+    --status-bar-height: env(safe-area-inset-top);
+    --bottom-safe-area: env(safe-area-inset-bottom);
+    --safe-area-bg: #F6F6F7; /* Restore to original light gray */
+  }
+
+  /* Main app container */
+  .app-container {
+    padding-top: var(--status-bar-height);
+    padding-bottom: var(--bottom-safe-area);
+    min-height: 100vh;
+    overflow-y: auto;
+    overscroll-behavior: none;
+    position: relative;
+  }
+
+  .app-container::before,
+  .app-container::after {
+    content: '';
+    position: fixed;
+    left: 0;
+    right: 0;
+    z-index: 9999;
+    pointer-events: none;
+    background: var(--safe-area-bg);
+  }
+  .app-container::before {
+    top: 0;
+    height: var(--status-bar-height);
+  }
+  .app-container::after {
+    bottom: 0;
+    height: var(--bottom-safe-area);
+  }
+
+  /* Fixed header */
+  .fixed-header {
+    position: fixed;
+    top: var(--status-bar-height);
+    left: 0;
+    right: 0;
+    z-index: 1000;
+  }
+
+  /* Fixed footer */
+  .fixed-footer {
+    position: fixed;
+    bottom: var(--bottom-safe-area);
+    left: 0;
+    right: 0;
+    z-index: 1000;
+  }
+
+  /* Content area */
+  .content-area {
+    padding-top: calc(var(--status-bar-height) + 60px); /* Adjust based on your header height */
+    padding-bottom: calc(var(--bottom-safe-area) + 60px); /* Adjust based on your footer height */
+  }
+
+  /* Ensure dropdown menu is above header */
+  .dropdown-menu-native {
+    z-index: 2000 !important;
+  }
+} 
