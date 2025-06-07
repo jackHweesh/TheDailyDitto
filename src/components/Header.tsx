@@ -4,6 +4,7 @@ import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuIte
 import { Button, GearIcon } from '@/components/ui/button';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/context/AuthContext';
 
 interface HeaderProps {
   hasVoted: boolean;
@@ -12,8 +13,10 @@ interface HeaderProps {
 
 const Header: React.FC<HeaderProps> = ({ hasVoted, onLogoClick }) => {
   const navigate = useNavigate();
+  const { user } = useAuth();
+
   return (
-    <header className="bg-white shadow">
+    <header className="bg-white shadow sticky top-0">
       <div className="max-w-7xl mx-auto px-4 py-2 sm:px-6 flex items-center justify-between">
         <button
           type="button"
@@ -37,13 +40,25 @@ const Header: React.FC<HeaderProps> = ({ hasVoted, onLogoClick }) => {
                 <GearIcon className="w-full h-full" />
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={() => navigate('/profile')}>Profile</DropdownMenuItem>
-              <DropdownMenuItem onClick={() => navigate('/how-to-play')}>How to Play</DropdownMenuItem>
-              <DropdownMenuItem onClick={() => navigate('/contact')}>Contact Us</DropdownMenuItem>
-              <DropdownMenuItem onClick={() => navigate('/privacy-policy')}>Privacy Policy</DropdownMenuItem>
-              <DropdownMenuItem onClick={() => navigate('/terms-of-service')}>Terms of Service</DropdownMenuItem>
-              <DropdownMenuItem onClick={async () => { await supabase.auth.signOut(); navigate('/auth'); }}>Log out</DropdownMenuItem>
+            <DropdownMenuContent align="end" className="z-[2000]">
+              {user ? (
+                <>
+                  <DropdownMenuItem onClick={() => navigate('/profile')}>Profile</DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => navigate('/how-to-play')}>How to Play</DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => navigate('/contact')}>Contact Us</DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => navigate('/privacy-policy')}>Privacy Policy</DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => navigate('/terms-of-service')}>Terms of Service</DropdownMenuItem>
+                  <DropdownMenuItem onClick={async () => { await supabase.auth.signOut(); navigate('/auth'); }}>Log out</DropdownMenuItem>
+                </>
+              ) : (
+                <>
+                  <DropdownMenuItem onClick={() => navigate('/how-to-play')}>How to Play</DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => navigate('/contact')}>Contact Us</DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => navigate('/privacy-policy')}>Privacy Policy</DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => navigate('/terms-of-service')}>Terms of Service</DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => navigate('/auth')}>Log in</DropdownMenuItem>
+                </>
+              )}
             </DropdownMenuContent>
           </DropdownMenu>
         </div>

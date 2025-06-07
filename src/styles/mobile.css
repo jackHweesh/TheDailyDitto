@@ -36,7 +36,8 @@
   }
 
   /* Fixed header */
-  .fixed-header {
+  .fixed-header,
+  header.bg-white {
     position: fixed;
     top: var(--status-bar-height);
     left: 0;
@@ -60,7 +61,8 @@
   }
 
   /* Ensure dropdown menu is above header */
-  .dropdown-menu-native {
+  .dropdown-menu-native,
+  [data-radix-popper-content-wrapper] {
     z-index: 2000 !important;
   }
 } 
