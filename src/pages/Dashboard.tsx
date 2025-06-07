@@ -101,14 +101,16 @@ const Dashboard: React.FC = () => {
           const voted = await checkUserVote(questionData.id, user?.id ?? null, fingerprint);
           setHasVoted(voted);
 
-          // Set initial view based on vote status
-          if (voted) {
-            setCurrentView(DashboardView.RESULTS);
-            await fetchResults(questionData.id);
-          } else {
-            setCurrentView(DashboardView.QUESTION);
+          // Set initial view based on vote status only on first load
+          if (isFirstLoad) {
+            if (voted) {
+              setCurrentView(DashboardView.RESULTS);
+              await fetchResults(questionData.id);
+            } else {
+              setCurrentView(DashboardView.QUESTION);
+            }
+            setIsFirstLoad(false);
           }
-          setIsFirstLoad(false);
         }
       } catch (error: any) {
         console.error('Error fetching questions:', error);
@@ -219,6 +221,7 @@ const Dashboard: React.FC = () => {
   // Guard: If user has already voted, never allow voting screen
   useEffect(() => {
     if (!isVoteStatusLoading && hasVoted && currentView === DashboardView.QUESTION) {
+      // Only redirect to results if we're on the question view
       setCurrentView(DashboardView.RESULTS);
       if (questionData) {
         fetchResults(questionData.id);
@@ -228,8 +231,11 @@ const Dashboard: React.FC = () => {
 
   // Guard: If user hasn't voted, never allow results or groups view
   useEffect(() => {
-    if (!isVoteStatusLoading && !hasVoted && (currentView === DashboardView.RESULTS || currentView === DashboardView.GROUPS)) {
-      setCurrentView(DashboardView.QUESTION);
+    if (!isVoteStatusLoading && !hasVoted) {
+      // Only redirect to question if we're on results or groups view
+      if (currentView === DashboardView.RESULTS || currentView === DashboardView.GROUPS) {
+        setCurrentView(DashboardView.QUESTION);
+      }
     }
   }, [currentView, hasVoted, isVoteStatusLoading]);
 
