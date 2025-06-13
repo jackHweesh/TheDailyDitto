@@ -43,31 +43,33 @@ const HowToPlay: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <Header hasVoted={hasVoted} onLogoClick={() => navigate('/')} />
-      <div className="flex flex-col items-center justify-center min-h-screen bg-gray-50 relative pt-0">
-        <Card className="w-full max-w-xl p-8 mt-8 text-center relative">
-          <div className="absolute left-4 top-4">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => navigate(-1)}
-              className="text-xl font-normal"
-              aria-label="Back"
-            >
-              <ArrowLeft className="w-9 h-9 stroke-2" />
-            </Button>
-          </div>
-          <h1 className="text-2xl font-bold mb-6">How to Play</h1>
-          <div className="text-lg text-alike-navy space-y-4">
-            <p className="font-semibold">Welcome to Ditto — the daily social polling game that brings people closer with every vote.</p>
-            <p className="font-semibold">Each day, you'll answer a fun, thought-provoking question. Then, compare your answer with the world! To see past results, click on and change the calendar date.</p>
-            <p className="font-semibold">Want to get more personal? Create custom groups to compare responses with your friends and family.</p>
-            <p className="font-semibold">Tap on any option to see exactly who voted for what — no secrets here!</p>
-            <p className="font-semibold">And for a little extra fun, check out the icon next to each group name to see your match percentage — it shows how often you and someone else answer the same way, based on shared questions you've both completed.</p>
-            <p className="font-semibold">Curious what others think? Let's find out.</p>
-          </div>
-        </Card>
-      </div>
+      <Header hasVoted={hasVoted} onLogoClick={() => navigate('/')} fixed={false} />
+      <main className="content-area flex-1 flex flex-col">
+        <div className="flex flex-col items-center justify-center bg-gray-50 relative pt-0">
+          <Card className="w-full max-w-xl p-8 mt-8 text-center relative">
+            <div className="absolute left-4 top-4">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => navigate(-1)}
+                className="text-xl font-normal"
+                aria-label="Back"
+              >
+                <ArrowLeft className="w-9 h-9 stroke-2" />
+              </Button>
+            </div>
+            <h1 className="text-2xl font-bold mb-6">How to Play</h1>
+            <div className="text-lg text-alike-navy space-y-4">
+              <p className="font-semibold">Welcome to Ditto — the daily social polling game that brings people closer with every vote.</p>
+              <p className="font-semibold">Each day, you'll answer a fun, thought-provoking question. Then, compare your answer with the world! To see past results, click on and change the calendar date.</p>
+              <p className="font-semibold">Want to get more personal? Create custom groups to compare responses with your friends and family.</p>
+              <p className="font-semibold">Tap on any option to see exactly who voted for what — no secrets here!</p>
+              <p className="font-semibold">And for a little extra fun, check out the icon next to each group name to see your match percentage — it shows how often you and someone else answer the same way, based on shared questions you've both completed.</p>
+              <p className="font-semibold">Curious what others think? Let's find out.</p>
+            </div>
+          </Card>
+        </div>
+      </main>
       <footer className="bg-white border-t">
         <div className="max-w-7xl mx-auto px-4 py-4 sm:px-6 text-center">
           <p className="text-sm text-muted-foreground">© {new Date().getFullYear()} TheDailyDitto. All rights reserved.</p>

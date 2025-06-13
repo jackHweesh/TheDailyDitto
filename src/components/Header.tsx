@@ -9,14 +9,15 @@ import { useAuth } from '@/context/AuthContext';
 interface HeaderProps {
   hasVoted: boolean;
   onLogoClick: () => void;
+  fixed?: boolean;
 }
 
-const Header: React.FC<HeaderProps> = ({ hasVoted, onLogoClick }) => {
+const Header: React.FC<HeaderProps> = ({ hasVoted, onLogoClick, fixed = true }) => {
   const navigate = useNavigate();
   const { user } = useAuth();
 
   return (
-    <header className="bg-white shadow sticky top-0">
+    <header className={fixed ? "bg-white shadow sticky top-0" : "bg-white shadow"}>
       <div className="max-w-7xl mx-auto px-4 py-2 sm:px-6 flex items-center justify-between">
         <button
           type="button"

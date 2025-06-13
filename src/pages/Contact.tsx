@@ -43,7 +43,7 @@ const Contact: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <Header hasVoted={hasVoted} onLogoClick={() => navigate('/')} />
+      <Header hasVoted={hasVoted} onLogoClick={() => navigate('/')} fixed={false} />
       <div className="flex flex-col items-center justify-center min-h-screen bg-gray-50 relative pt-0">
         <Card className="w-full max-w-xl p-8 mt-8 text-center relative">
           <div className="absolute left-4 top-4">

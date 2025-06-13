@@ -105,26 +105,28 @@ const TermsOfService: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <Header hasVoted={hasVoted} onLogoClick={() => navigate('/')} />
-      <div className="flex flex-col items-center justify-center min-h-screen bg-gray-50 relative pt-0">
-        <Card className="w-full max-w-2xl p-8 mt-8 relative">
-          <div className="absolute left-4 top-4">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => navigate(-1)}
-              className="text-xl font-normal"
-              aria-label="Back"
-            >
-              <ArrowLeft className="w-6 h-6 stroke-2" />
-            </Button>
-          </div>
-          <h1 className="text-2xl font-bold mb-6 text-center">Terms of Service</h1>
-          <div className="prose max-w-none">
-            <ReactMarkdown>{termsOfService}</ReactMarkdown>
-          </div>
-        </Card>
-      </div>
+      <Header hasVoted={hasVoted} onLogoClick={() => navigate('/')} fixed={false} />
+      <main className="content-area flex-1 flex flex-col">
+        <div className="flex flex-col items-center justify-center bg-gray-50 relative pt-0">
+          <Card className="w-full max-w-2xl p-8 mt-8 relative">
+            <div className="absolute left-4 top-4">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => navigate(-1)}
+                className="text-xl font-normal"
+                aria-label="Back"
+              >
+                <ArrowLeft className="w-6 h-6 stroke-2" />
+              </Button>
+            </div>
+            <h1 className="text-2xl font-bold mb-6 text-center">Terms of Service</h1>
+            <div className="prose max-w-none">
+              <ReactMarkdown>{termsOfService}</ReactMarkdown>
+            </div>
+          </Card>
+        </div>
+      </main>
       <footer className="bg-white border-t">
         <div className="max-w-7xl mx-auto px-4 py-4 sm:px-6 text-center">
           <p className="text-sm text-muted-foreground">© {new Date().getFullYear()} TheDailyDitto. All rights reserved.</p>

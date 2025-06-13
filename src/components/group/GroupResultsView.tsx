@@ -38,6 +38,52 @@ interface Message {
   created_at: string;
 }
 
+interface DailyQuestion {
+  id: string;
+  question: string;
+  options: unknown;
+  active_date: string;
+}
+
+interface Friend {
+  friend_id: string;
+}
+
+interface GroupMember {
+  user_id: string;
+  status?: string;
+}
+
+interface Profile {
+  id: string;
+  first_name: string;
+  last_name: string | null;
+}
+
+interface Vote {
+  user_id: string;
+  selected_option: string;
+}
+
+interface CustomTooltipProps {
+  active?: boolean;
+  payload?: Array<{
+    payload: GroupResult;
+  }>;
+  label?: string;
+}
+
+interface GroupData {
+  invite_code: string;
+  name: string;
+  owner_id: string;
+}
+
+type SupabaseResponse<T> = {
+  data: T | null;
+  error: Error | null;
+};
+
 const RESULT_COLORS = [
   '#4FD1C5', // teal
   '#667EEA', // indigo
@@ -76,9 +122,9 @@ const GroupResultsView: React.FC<GroupResultsViewProps> = ({
   const MAX_RETRIES = 3;
 
   const [showCalendar, setShowCalendar] = useState(false);
-  const [allQuestions, setAllQuestions] = useState<any[]>([]);
+  const [allQuestions, setAllQuestions] = useState<DailyQuestion[]>([]);
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
-  const [viewingQuestion, setViewingQuestion] = useState<any | null>(null);
+  const [viewingQuestion, setViewingQuestion] = useState<DailyQuestion | null>(null);
   const [viewingResults, setViewingResults] = useState<GroupResult[]>([]);
   const [isHistorical, setIsHistorical] = useState(false);
   const [pendingMembers, setPendingMembers] = useState<{ id: string; name: string }[]>([]);
@@ -136,86 +182,67 @@ const GroupResultsView: React.FC<GroupResultsViewProps> = ({
       setIsLoading(true);
       try {
         // Always fetch invite code for all users
-        const { data: groupData, error: groupError } = await supabase
+        const { data: groupData, error: groupError }: SupabaseResponse<GroupData> = await supabase
           .from('groups')
-          .select('invite_code')
+          .select('invite_code, name, owner_id')
           .eq('id', groupId)
           .single();
         if (groupError) throw groupError;
         if (groupData) {
           setInviteCode(groupData.invite_code);
         }
-        
-        // Get all members of the group
-        const { data: members, error: membersError } = await supabase
+        // Check if this is the current user's Friends group
+        let memberIds: string[] = [];
+        if (groupData && groupData.name === 'Friends' && user && groupData.owner_id === user.id) {
+          // Friends group: get all friend_ids for this user + self
+          const { data: friendsData, error: friendsError }: SupabaseResponse<Friend[]> = await supabase
+            .from('friends')
+            .select('friend_id')
+            .eq('user_id', user.id);
+          if (friendsError) throw friendsError;
+          memberIds = [user.id, ...(friendsData ? friendsData.map((f) => f.friend_id) : [])];
+        } else {
+          // Normal group: get all group members
+          const { data: members, error: membersError }: SupabaseResponse<GroupMember[]> = await supabase
           .from('group_members')
           .select('user_id, status')
           .eq('group_id', groupId);
-
         if (membersError) throw membersError;
-
-        // Only include accepted members (not pending)
-        const acceptedMemberIds = (members || []).filter(m => m.status !== 'pending').map(m => m.user_id);
-        console.log('Accepted member IDs:', acceptedMemberIds);
-
-        if (acceptedMemberIds.length > 0) {
-          // Get votes from accepted group members for this question
-          const { data: votes, error: votesError } = await supabase
+          memberIds = (members || []).filter(m => m.status !== 'pending').map(m => m.user_id);
+        }
+        if (memberIds.length > 0) {
+          // Get votes from group members for this question
+          const { data: votes, error: votesError }: SupabaseResponse<Vote[]> = await supabase
             .from('votes')
             .select('user_id, selected_option')
             .eq('question_id', questionId)
-            .in('user_id', acceptedMemberIds);
-
+            .in('user_id', memberIds);
           if (votesError) throw votesError;
-          
           // Get names for the voters
-          const { data: profiles, error: profilesError } = await supabase
+          const { data: profiles, error: profilesError }: SupabaseResponse<Profile[]> = await supabase
             .from('profiles')
             .select('id, first_name, last_name')
-            .in('id', acceptedMemberIds);
-
-          if (profilesError) {
-            console.error('Profile error:', profilesError);
-            throw profilesError;
-          }
-
-          // Create a map of user IDs to full names
-          const nameMap = new Map();
-          
+            .in('id', memberIds);
+          if (profilesError) throw profilesError;
+          const nameMap = new Map<string, string>();
           if (profiles) {
             profiles.forEach(profile => {
               const fullName = profile.first_name + (profile.last_name ? ` ${profile.last_name}` : '');
-              console.log('Mapping user ID to name:', profile.id, fullName);
               nameMap.set(profile.id, fullName);
             });
           }
-
-          console.log('Final name map:', Object.fromEntries(nameMap));
-
           // Calculate group results
           const voteCounts: Record<string, number> = {};
           const votersByOption: Record<string, string[]> = {};
-
-          // Initialize the votersByOption for all options
-          options.forEach(option => {
-            votersByOption[option] = [];
-          });
-
+          options.forEach(option => { votersByOption[option] = []; });
           votes?.forEach(vote => {
             voteCounts[vote.selected_option] = (voteCounts[vote.selected_option] || 0) + 1;
-            
-            // Add the voter's name to the corresponding option
             const username = nameMap.get(vote.user_id);
-            console.log('Processing vote:', vote.user_id, 'Found name:', username);
             votersByOption[vote.selected_option] = [
               ...(votersByOption[vote.selected_option] || []),
               username || 'Unknown User'
             ];
           });
-
-          console.log('Final votersByOption:', votersByOption);
-
-          // Calculate percentages and format results
           const totalVotes = Object.values(voteCounts).reduce((sum, count) => sum + count, 0);
           const formattedResults: GroupResult[] = options.map((option, index) => ({
             option,
@@ -224,24 +251,26 @@ const GroupResultsView: React.FC<GroupResultsViewProps> = ({
             color: RESULT_COLORS[index % RESULT_COLORS.length],
             voters: votersByOption[option]
           }));
-
           setGroupResults(formattedResults);
         } else {
           setGroupResults([]);
         }
-      } catch (error: any) {
+      } catch (error: unknown) {
+        let message = 'Could not load group results';
+        if (error instanceof Error) {
+          message = error.message;
+        }
         toast({
           title: "Error loading group results",
-          description: error.message || "Could not load group results",
+          description: message,
           variant: "destructive"
         });
       } finally {
         setIsLoading(false);
       }
     };
-
     fetchGroupResultsAndInviteCode();
-  }, [groupId, questionId, options, toast]);
+  }, [groupId, questionId, options, toast, user]);
 
   // Fetch chat messages
   const fetchMessages = async () => {
@@ -262,11 +291,11 @@ const GroupResultsView: React.FC<GroupResultsViewProps> = ({
         const userIds = [...new Set(data.map(message => message.user_id))];
         await fetchUserProfiles(userIds);
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error fetching messages:', error);
       toast({
         title: "Error loading messages",
-        description: error.message || "Could not load chat messages",
+        description: error instanceof Error ? error.message : "Could not load chat messages",
         variant: "destructive"
       });
     } finally {
@@ -349,8 +378,13 @@ const GroupResultsView: React.FC<GroupResultsViewProps> = ({
           return newProfiles;
         });
       }
-    } catch (error) {
+    } catch (error: unknown) {
       console.error('Error in fetchUserProfiles:', error);
+      toast({
+        title: "Error loading user profiles",
+        description: error instanceof Error ? error.message : "Could not load user profiles",
+        variant: "destructive"
+      });
     }
   };
   
@@ -374,12 +408,12 @@ const GroupResultsView: React.FC<GroupResultsViewProps> = ({
         });
         
       if (error) throw error;
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error sending message:', error);
       setNewMessage(messageToSend); // Restore the message
       toast({
         title: "Error sending message",
-        description: error.message || "Could not send your message",
+        description: error instanceof Error ? error.message : "Could not send your message",
         variant: "destructive"
       });
     } finally {
@@ -440,7 +474,7 @@ const GroupResultsView: React.FC<GroupResultsViewProps> = ({
   };
 
   // Create a custom tooltip component for the bar chart
-  const CustomTooltip = ({ active, payload, label }: any) => {
+  const CustomTooltip = ({ active, payload, label }: CustomTooltipProps) => {
     if (active && payload && payload.length > 0) {
       const data = payload[0].payload;
       return (
@@ -498,13 +532,40 @@ const GroupResultsView: React.FC<GroupResultsViewProps> = ({
     }
     // Fetch group results for this question
     (async () => {
-      // Get all members of the group
-      const { data: members } = await supabase
+      // Fetch group data to check if this is the Friends group
+      const { data: groupData, error: groupError } = await supabase
+        .from('groups')
+        .select('name, owner_id')
+        .eq('id', groupId)
+        .single();
+      if (groupError) {
+        setViewingResults([]);
+        return;
+      }
+      let memberIds: string[] = [];
+      if (groupData && groupData.name === 'Friends' && user && groupData.owner_id === user.id) {
+        // Friends group: get all friend_ids for this user + self
+        const { data: friendsData, error: friendsError } = await supabase
+          .from('friends')
+          .select('friend_id')
+          .eq('user_id', user.id);
+        if (friendsError) {
+          setViewingResults([]);
+          return;
+        }
+        memberIds = [user.id, ...(friendsData ? friendsData.map((f: Friend) => f.friend_id) : [])];
+      } else {
+        // Normal group: get all group members
+        const { data: groupMembers } = await supabase
         .from('group_members')
         .select('user_id')
         .eq('group_id', groupId);
-      if (!members || members.length === 0) return setViewingResults([]);
-      const memberIds = members.map((m: any) => m.user_id);
+        if (!groupMembers || groupMembers.length === 0) {
+          setViewingResults([]);
+          return;
+        }
+        memberIds = groupMembers.map((m: GroupMember) => m.user_id);
+      }
       // Get votes from group members for this question
       const { data: votes } = await supabase
         .from('votes')
@@ -516,9 +577,9 @@ const GroupResultsView: React.FC<GroupResultsViewProps> = ({
         .from('profiles')
         .select('id, first_name, last_name')
         .in('id', memberIds);
-      const nameMap = new Map();
+      const nameMap = new Map<string, string>();
       if (profiles) {
-        profiles.forEach((profile: any) => {
+        profiles.forEach((profile: Profile) => {
           const fullName = profile.first_name + (profile.last_name ? ` ${profile.last_name}` : '');
           nameMap.set(profile.id, fullName);
         });
@@ -528,7 +589,7 @@ const GroupResultsView: React.FC<GroupResultsViewProps> = ({
       const voteCounts: Record<string, number> = {};
       const votersByOption: Record<string, string[]> = {};
       parsedOptions.forEach((option: string) => { votersByOption[option] = []; });
-      votes?.forEach((vote: any) => {
+      votes?.forEach((vote: Vote) => {
         voteCounts[vote.selected_option] = (voteCounts[vote.selected_option] || 0) + 1;
         const username = nameMap.get(vote.user_id);
         votersByOption[vote.selected_option] = [
@@ -547,7 +608,7 @@ const GroupResultsView: React.FC<GroupResultsViewProps> = ({
       setViewingResults(formattedResults);
       setIsHistorical(!isSameDay(selectedDate, new Date()));
     })();
-  }, [selectedDate, allQuestions, groupId]);
+  }, [selectedDate, allQuestions, groupId, user]);
 
   // Only enable dates that have a question (by active_date)
   const today = new Date();
@@ -574,11 +635,19 @@ const GroupResultsView: React.FC<GroupResultsViewProps> = ({
     setPendingAction(null);
     console.log('Approve result:', { data, error });
     if (error) {
-      toast({ title: 'Error', description: error.message, variant: 'destructive' });
+      toast({ 
+        title: 'Error', 
+        description: error instanceof Error ? error.message : 'Failed to approve member', 
+        variant: 'destructive' 
+      });
       return;
     }
     if (!data || data.length === 0) {
-      toast({ title: 'No rows updated', description: 'No group member was updated. Check group_id and user_id.', variant: 'destructive' });
+      toast({ 
+        title: 'No rows updated', 
+        description: 'No group member was updated. Check group_id and user_id.', 
+        variant: 'destructive' 
+      });
       return;
     }
     await fetchPendingRequests();
@@ -596,11 +665,19 @@ const GroupResultsView: React.FC<GroupResultsViewProps> = ({
     setPendingAction(null);
     console.log('Reject result:', { data, error });
     if (error) {
-      toast({ title: 'Error', description: error.message, variant: 'destructive' });
+      toast({ 
+        title: 'Error', 
+        description: error instanceof Error ? error.message : 'Failed to reject member', 
+        variant: 'destructive' 
+      });
       return;
     }
     if (!data || data.length === 0) {
-      toast({ title: 'No rows deleted', description: 'No group member was deleted. Check group_id and user_id.', variant: 'destructive' });
+      toast({ 
+        title: 'No rows deleted', 
+        description: 'No group member was deleted. Check group_id and user_id.', 
+        variant: 'destructive' 
+      });
       return;
     }
     await fetchPendingRequests();
@@ -639,6 +716,16 @@ const GroupResultsView: React.FC<GroupResultsViewProps> = ({
             </PopoverContent>
           </Popover>
           <div className="flex items-center gap-1 bg-alike-teal/10 rounded-full px-3 py-1.5">
+            {groupName === 'Friends' ? (
+              <Button
+                variant="outline"
+                className="text-alike-teal border-alike-teal hover:bg-alike-teal/10"
+                disabled
+              >
+                Send Friend Invite
+              </Button>
+            ) : (
+              <>
             <span className="text-xs font-medium text-alike-teal">Invite: {inviteCode}</span>
             <Button 
               variant="ghost" 
@@ -648,6 +735,8 @@ const GroupResultsView: React.FC<GroupResultsViewProps> = ({
             >
               <Copy className="h-3 w-3 text-alike-teal" />
             </Button>
+              </>
+            )}
           </div>
         </div>
         {/* Second row: back button and group name */}
@@ -734,7 +823,7 @@ const GroupResultsView: React.FC<GroupResultsViewProps> = ({
           )}
         </div>
         {/* Group Chat (only for today) */}
-        {!isHistorical && (
+        {!isHistorical && groupName !== 'Friends' && (
           <div className="border rounded-lg mt-12">
             <div className="p-3 border-b">
               <h3 className="text-lg font-medium">Group Chat</h3>

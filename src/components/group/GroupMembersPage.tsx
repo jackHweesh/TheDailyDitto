@@ -6,7 +6,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/components/ui/use-toast';
 import { useNavigate } from 'react-router-dom';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, Star } from 'lucide-react';
 
 interface GroupMembersPageProps {
   groupId: string;
@@ -36,21 +36,116 @@ const GroupMembersPage: React.FC<GroupMembersPageProps> = ({ groupId, groupName,
   const navigate = useNavigate();
   const [showLeaveConfirmation, setShowLeaveConfirmation] = useState(false);
   const [isLeavingGroup, setIsLeavingGroup] = useState(false);
+  const [friends, setFriends] = useState<string[]>([]);
+  const [starLoading, setStarLoading] = useState<string | null>(null);
+  const isFriendsGroup = groupName === 'Friends';
+  const [friendsGroupId, setFriendsGroupId] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fetchFriendsGroupId = async () => {
+      if (!user) return;
+      const { data, error }: { data: { id: string } | null, error: unknown } = await supabase
+        .from('groups')
+        .select('id')
+        .eq('name', 'Friends')
+        .eq('owner_id', user.id)
+        .single();
+      if (!error && data) setFriendsGroupId(data.id);
+    };
+    fetchFriendsGroupId();
+  }, [user]);
 
   useEffect(() => {
     const fetchMembers = async () => {
       if (!user) return;
-      
       setIsLoading(true);
+      // Fetch the current user's Friends group ID
+      const { data: friendsGroup, error: friendsGroupError }: { data: { id: string } | null, error: unknown } = await supabase
+        .from('groups')
+        .select('id')
+        .eq('name', 'Friends')
+        .eq('owner_id', user.id)
+        .single();
+      const isMyFriendsGroup = friendsGroup && groupId === friendsGroup.id;
+      if (isMyFriendsGroup) {
+        try {
+          // Show yourself and all users you have starred
+          const { data: friendsData, error: friendsError }: { data: { friend_id: string }[] | null, error: unknown } = await supabase
+            .from('friends')
+            .select('friend_id')
+            .eq('user_id', user.id);
+          if (friendsError) throw friendsError;
+          const friendIds = friendsData ? friendsData.map((f: { friend_id: string }) => f.friend_id) : [];
+          const allIds = [user.id, ...friendIds];
+          // Fetch profiles
+          const { data: profiles }: { data: { id: string, first_name: string, last_name: string | null }[] | null } = await supabase
+            .from('profiles')
+            .select('id, first_name, last_name')
+            .in('id', allIds);
+          const nameMap: Record<string, string> = {};
+          profiles?.forEach((p) => {
+            nameMap[p.id] = p.first_name + (p.last_name ? ` ${p.last_name}` : '');
+          });
+          // Fetch all votes for these users
+          const { data: votes }: { data: { user_id: string, question_id: string, selected_option: string }[] | null } = await supabase
+            .from('votes')
+            .select('user_id, question_id, selected_option')
+            .in('user_id', allIds);
+          // Build a map of user_id -> {question_id: selected_option}
+          const votesByUser: Record<string, Record<string, string>> = {};
+          votes?.forEach((v) => {
+            if (!votesByUser[v.user_id]) votesByUser[v.user_id] = {};
+            votesByUser[v.user_id][v.question_id] = v.selected_option;
+          });
+          // Compute alike percentage for each member (except self)
+          const currentUserVotes = votesByUser[user.id] || {};
+          const allMembers: Member[] = allIds.map((id) => {
+            const theirVotes = votesByUser[id] || {};
+            // Find questions both answered
+            const commonQuestions = Object.keys(currentUserVotes).filter(qid => theirVotes[qid]);
+            const total = commonQuestions.length;
+            let alike = 0;
+            commonQuestions.forEach(qid => {
+              if (currentUserVotes[qid] === theirVotes[qid]) alike++;
+            });
+            return {
+              id,
+              name: nameMap[id] || 'Unknown',
+              alike: total > 0 ? Math.round((alike / total) * 100) : 0,
+              alikeCount: alike,
+              totalCount: total,
+              status: id === user.id ? 'owner' : 'member',
+            };
+          });
+          setMembers(allMembers);
+          setPendingMembers([]);
+          setIsOwner(true);
+          setUserStatus('owner');
+          setFriends(friendIds);
+        } catch (error: unknown) {
+          let message = 'Could not load group members';
+          if (typeof error === 'object' && error && 'message' in error) {
+            message = (error as { message?: string }).message || message;
+          }
+          toast({
+            title: "Error loading members",
+            description: message,
+            variant: "destructive"
+          });
+        } finally {
+          setIsLoading(false);
+        }
+        return;
+      }
+      // Normal group logic
       try {
         // 1. Check if user has access to this group
-        const { data: membership, error: membershipError } = await supabase
+        const { data: membership, error: membershipError }: { data: { status: string } | null, error: unknown } = await supabase
           .from('group_members')
           .select('status')
           .eq('group_id', groupId)
           .eq('user_id', user.id)
           .single();
-        
         if (membershipError || !membership) {
           toast({
             title: "Access Denied",
@@ -60,46 +155,37 @@ const GroupMembersPage: React.FC<GroupMembersPageProps> = ({ groupId, groupName,
           onBack();
           return;
         }
-        
         setUserStatus(membership.status);
-        
         // 2. Get all group members with their status
-        const { data: groupMembers, error: groupMembersError } = await supabase
+        const { data: groupMembers, error: groupMembersError }: { data: { user_id: string, status: string }[] | null, error: unknown } = await supabase
           .from('group_members')
           .select('user_id, status')
           .eq('group_id', groupId);
-        
         if (groupMembersError) throw groupMembersError;
-        
-        const memberIds = groupMembers.map((m: any) => m.user_id);
-        
+        const memberIds = groupMembers.map((m) => m.user_id);
         // 3. Get member names
-        const { data: profiles } = await supabase
+        const { data: profiles }: { data: { id: string, first_name: string, last_name: string | null }[] | null } = await supabase
           .from('profiles')
           .select('id, first_name, last_name')
           .in('id', memberIds);
-        
         const nameMap: Record<string, string> = {};
-        profiles?.forEach((p: any) => {
+        profiles?.forEach((p) => {
           nameMap[p.id] = p.first_name + (p.last_name ? ` ${p.last_name}` : '');
         });
-        
         // 4. Get all votes for all members
-        const { data: votes } = await supabase
+        const { data: votes }: { data: { user_id: string, question_id: string, selected_option: string }[] | null } = await supabase
           .from('votes')
           .select('user_id, question_id, selected_option')
           .in('user_id', memberIds);
-        
         // 5. Build a map of user_id -> {question_id: selected_option}
         const votesByUser: Record<string, Record<string, string>> = {};
-        votes?.forEach((v: any) => {
+        votes?.forEach((v) => {
           if (!votesByUser[v.user_id]) votesByUser[v.user_id] = {};
           votesByUser[v.user_id][v.question_id] = v.selected_option;
         });
-        
         // 6. Compute alike percentage for each member (except self)
         const currentUserVotes = votesByUser[user.id] || {};
-        const allMembers: Member[] = groupMembers.map((m: any) => {
+        const allMembers: Member[] = groupMembers.map((m) => {
           const id = m.user_id;
           const theirVotes = votesByUser[id] || {};
           // Find questions both answered
@@ -118,39 +204,39 @@ const GroupMembersPage: React.FC<GroupMembersPageProps> = ({ groupId, groupName,
             status: m.status,
           };
         });
-        
         // Filter members and pending members
         const activeMembers = allMembers.filter(m => m.status !== 'pending');
         const pending = allMembers.filter(m => m.status === 'pending');
-        
-        console.log('Active members:', activeMembers);
-        console.log('Pending members:', pending);
-        
         setMembers(activeMembers);
         setPendingMembers(pending);
-        
         // 7. Check if current user is owner
-        const { data: groupData } = await supabase
+        const { data: groupData }: { data: { owner_id: string } | null } = await supabase
           .from('groups')
           .select('owner_id')
           .eq('id', groupId)
           .single();
-        
         const isUserOwner = groupData && user && groupData.owner_id === user.id;
-        console.log('Is user owner:', isUserOwner, 'Group owner:', groupData?.owner_id, 'Current user:', user.id);
-        
         setIsOwner(isUserOwner);
-      } catch (error: any) {
+        // Fetch friends for the current user
+        const { data: friendsData }: { data: { friend_id: string }[] | null } = await supabase
+          .from('friends')
+          .select('friend_id')
+          .eq('user_id', user.id);
+        setFriends(friendsData ? friendsData.map((f) => f.friend_id) : []);
+      } catch (error: unknown) {
+        let message = 'Could not load group members';
+        if (typeof error === 'object' && error && 'message' in error) {
+          message = (error as { message?: string }).message || message;
+        }
         toast({
           title: "Error loading members",
-          description: error.message || "Could not load group members",
+          description: message,
           variant: "destructive"
         });
       } finally {
         setIsLoading(false);
       }
     };
-    
     fetchMembers();
   }, [groupId, user, toast, onBack]);
 
@@ -308,6 +394,47 @@ const GroupMembersPage: React.FC<GroupMembersPageProps> = ({ groupId, groupName,
     }
   };
 
+  const getFriendsGroupId = async (userId: string) => {
+    const { data, error } = await supabase
+      .from('groups')
+      .select('id')
+      .eq('name', 'Friends')
+      .eq('owner_id', userId)
+      .single();
+    if (error || !data) throw new Error('Could not find Friends group');
+    return data.id;
+  };
+
+  const toggleFriend = async (memberId: string) => {
+    if (!user || memberId === user.id) return;
+    setStarLoading(memberId);
+    try {
+      if (friends.includes(memberId)) {
+        // Remove friend
+        await supabase
+          .from('friends')
+          .delete()
+          .eq('user_id', user.id)
+          .eq('friend_id', memberId);
+        setFriends(friends.filter(f => f !== memberId));
+      } else {
+        // Add friend
+        await supabase
+          .from('friends')
+          .insert({ user_id: user.id, friend_id: memberId });
+        setFriends([...friends, memberId]);
+      }
+    } catch (error: any) {
+      toast({
+        title: 'Error updating friends',
+        description: error.message || 'Could not update friends list',
+        variant: 'destructive',
+      });
+    } finally {
+      setStarLoading(null);
+    }
+  };
+
   // Listen for refresh event
   useEffect(() => {
     const handler = () => {
@@ -363,11 +490,30 @@ const GroupMembersPage: React.FC<GroupMembersPageProps> = ({ groupId, groupName,
                         {m.totalCount > 0 ? `${m.alikeCount}/${m.totalCount} questions` : '0/0 questions'}
                       </span>
                     </span>
+                    <div className="flex items-center gap-3">
                     <span className="text-alike-teal font-semibold">{m.alike}% alike</span>
+                      {user && m.id !== user.id && (
+                        <button
+                          onClick={() => toggleFriend(m.id)}
+                          disabled={starLoading === m.id}
+                          title={friends.includes(m.id) ? 'Remove from Friends' : 'Add to Friends'}
+                          style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
+                        >
+                          <Star
+                            size={24}
+                            color="#4FD1C5"
+                            fill={friends.includes(m.id) ? '#4FD1C5' : 'none'}
+                            strokeWidth={2}
+                            style={{ transition: 'fill 0.2s' }}
+                          />
+                        </button>
+                      )}
+                    </div>
                   </li>
                 ))}
               </ul>
             )}
+            {!isFriendsGroup && (
             <div className="mt-8 flex flex-col items-center gap-4">
               <Button
                 onClick={() => setShowLeaveConfirmation(true)}
@@ -377,6 +523,7 @@ const GroupMembersPage: React.FC<GroupMembersPageProps> = ({ groupId, groupName,
                 Leave Group
               </Button>
             </div>
+            )}
             <Dialog open={showLeaveConfirmation} onOpenChange={setShowLeaveConfirmation}>
               <DialogContent>
                 <DialogHeader>
