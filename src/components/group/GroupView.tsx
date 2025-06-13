@@ -19,7 +19,7 @@ import { nanoid } from 'nanoid';
 import GroupResultsView from './GroupResultsView';
 import GroupMembersPage from './GroupMembersPage';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, Star } from 'lucide-react';
 
 interface Group {
   id: string;
@@ -75,21 +75,40 @@ const GroupView: React.FC<GroupViewProps> = ({ questionId, onBack, options, ques
         if (groupsData) {
           const groupsWithCounts = await Promise.all(
             groupsData.map(async (group) => {
-              const { count, error: countError } = await supabase
-                .from('group_members')
-                .select('*', { count: 'exact', head: true })
-                .eq('group_id', group.id);
+              let memberCount = 0;
+              if (group.name === 'Friends' && group.owner_id === user.id) {
+                // Friends group: count user + all their friends
+                const { data: friendsData, error: friendsError } = await supabase
+                  .from('friends')
+                  .select('friend_id')
+                  .eq('user_id', user.id);
+                if (friendsError) throw friendsError;
+                memberCount = 1 + (friendsData ? friendsData.length : 0);
+              } else {
+                const { count, error: countError } = await supabase
+                  .from('group_members')
+                  .select('*', { count: 'exact', head: true })
+                  .eq('group_id', group.id);
+                if (countError) throw countError;
+                memberCount = count || 0;
+              }
               // Find this user's membership status
               const membership = membershipData.find(m => m.group_id === group.id);
               return {
                 id: group.id,
                 name: group.name,
-                memberCount: count || 0,
+                memberCount,
                 status: membership?.status || 'pending',
                 owner_id: group.owner_id
               };
             })
           );
+          // Sort: Friends group (owned by user) always first, then others as before
+          groupsWithCounts.sort((a, b) => {
+            if (a.name === 'Friends' && a.owner_id === user.id) return -1;
+            if (b.name === 'Friends' && b.owner_id === user.id) return 1;
+            return 0;
+          });
           setGroups(groupsWithCounts);
           // Set active group based on URL if available
           if (groupId) {
@@ -526,7 +545,11 @@ const GroupView: React.FC<GroupViewProps> = ({ questionId, onBack, options, ques
                   <div>
                     <p className={`font-medium ${activeGroup?.id === group.id ? 'text-white' : 'text-alike-navy'}`}>
                       {group.name}
-                      {group.status === 'owner' && ' (Owner)'}
+                      {/* Show star icon for Friends group owned by user, otherwise show (Owner) or (Pending) */}
+                      {group.name === 'Friends' && group.owner_id === user?.id && (
+                        <Star size={18} color="#fff" fill="#4FD1C5" strokeWidth={2} className="inline ml-1 align-text-bottom" />
+                      )}
+                      {group.name !== 'Friends' && group.status === 'owner' && ' (Owner)'}
                       {group.status === 'pending' && ' (Pending)'}
                     </p>
                     <p className={`text-xs ${activeGroup?.id === group.id ? 'text-white/80' : 'text-muted-foreground'}`}>

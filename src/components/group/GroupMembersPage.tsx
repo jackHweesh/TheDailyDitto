@@ -484,14 +484,16 @@ const GroupMembersPage: React.FC<GroupMembersPageProps> = ({ groupId, groupName,
                   <li key={m.id} className="py-3 flex items-center justify-between">
                     <span className="font-medium text-alike-navy">
                       {m.name}
-                      {m.status === 'owner' && ' (Owner)'}
+                      {m.status === 'owner' && (
+                        <Star size={18} color="#4FD1C5" fill="#4FD1C5" className="inline ml-1 align-text-bottom" />
+                      )}
                       <br />
                       <span className="text-xs text-muted-foreground font-normal" style={{ fontSize: '0.85em' }}>
                         {m.totalCount > 0 ? `${m.alikeCount}/${m.totalCount} questions` : '0/0 questions'}
                       </span>
                     </span>
                     <div className="flex items-center gap-3">
-                    <span className="text-alike-teal font-semibold">{m.alike}% alike</span>
+                      <span className="text-alike-teal font-semibold">{m.alike}% alike</span>
                       {user && m.id !== user.id && (
                         <button
                           onClick={() => toggleFriend(m.id)}
