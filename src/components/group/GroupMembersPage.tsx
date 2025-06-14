@@ -485,7 +485,9 @@ const GroupMembersPage: React.FC<GroupMembersPageProps> = ({ groupId, groupName,
                     <span className="font-medium text-alike-navy">
                       {m.name}
                       {m.status === 'owner' && (
-                        <Star size={18} color="#4FD1C5" fill="#4FD1C5" className="inline ml-1 align-text-bottom" />
+                        isFriendsGroup
+                          ? <Star size={18} color="#4FD1C5" fill="#4FD1C5" className="inline ml-1 align-text-bottom" />
+                          : ' (Owner)'
                       )}
                       <br />
                       <span className="text-xs text-muted-foreground font-normal" style={{ fontSize: '0.85em' }}>
