@@ -34,6 +34,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, currentSession) => {
         console.log('Auth state changed:', event);
+        if (event === 'PASSWORD_RECOVERY') {
+          // Do NOT set user/session, let the reset password flow handle it
+          setSession(null);
+          setUser(null);
+          setIsLoading(false);
+          return;
+        }
         setSession(currentSession);
         setUser(currentSession?.user ?? null);
         setIsLoading(false);
@@ -102,13 +109,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             userId: null
           });
 
-          const { data: voteData, error: voteError } = await (supabase
+          const { data: voteData, error: voteError } = await supabase
             .from('votes')
             .select('id, selected_option, question_id, created_at')
             .eq('question_id', questionData.id)
             .eq('browser_fingerprint', fingerprint)
             .is('user_id', null)
-            .single() as PostgrestBuilder<any>);
+            .single();
 
           console.log('Anonymous vote data:', voteData);
           console.log('Anonymous vote error:', voteError);
