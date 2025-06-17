@@ -43,7 +43,7 @@ const Profile: React.FC = () => {
 
   return (
     <div>
-      <Header hasVoted={hasVoted} onLogoClick={() => navigate('/')} />
+      <Header hasVoted={hasVoted} onLogoClick={() => navigate('/')} streak={0} />
       <ProfileView onBack={() => navigate(-1)} />
     </div>
   );

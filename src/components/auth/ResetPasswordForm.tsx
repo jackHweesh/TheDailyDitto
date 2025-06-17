@@ -1,10 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card';
 import { useToast } from '@/components/ui/use-toast';
 import Logo from '../Logo';
 import { supabase } from '@/integrations/supabase/client';
+import { useNavigate } from 'react-router-dom';
 
 const ResetPasswordForm: React.FC = () => {
   const [password, setPassword] = useState('');
@@ -12,35 +13,78 @@ const ResetPasswordForm: React.FC = () => {
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState('');
   const { toast } = useToast();
+  const navigate = useNavigate();
 
-  // Get access token from URL hash or query
-  let accessToken = '';
-  if (window.location.hash) {
-    const params = new URLSearchParams(window.location.hash.replace('#', '?'));
-    accessToken = params.get('access_token') || '';
-  } else if (window.location.search) {
-    const params = new URLSearchParams(window.location.search);
-    accessToken = params.get('access_token') || '';
-  }
+  // Get the access token from the URL
+  useEffect(() => {
+    const hash = window.location.hash;
+    const search = window.location.search;
+    
+    // If there's no token in the URL, redirect to login
+    if (!hash && !search) {
+      navigate('/');
+      return;
+    }
+
+    // Extract the access token
+    let accessToken = '';
+    if (hash) {
+      const params = new URLSearchParams(hash.replace('#', '?'));
+      accessToken = params.get('access_token') || '';
+    } else if (search) {
+      const params = new URLSearchParams(search);
+      accessToken = params.get('access_token') || '';
+    }
+
+    // If no access token found, redirect to login
+    if (!accessToken) {
+      navigate('/');
+      return;
+    }
+  }, [navigate]);
 
   const handleReset = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
     setError('');
+
     try {
-      // Set the session with the access token so updateUser works
-      if (accessToken) {
-        await supabase.auth.setSession({ access_token: accessToken, refresh_token: '' });
+      // Get the access token from the URL
+      const hash = window.location.hash;
+      const search = window.location.search;
+      let accessToken = '';
+      
+      if (hash) {
+        const params = new URLSearchParams(hash.replace('#', '?'));
+        accessToken = params.get('access_token') || '';
+      } else if (search) {
+        const params = new URLSearchParams(search);
+        accessToken = params.get('access_token') || '';
       }
-      const { error } = await supabase.auth.updateUser({ password });
+
+      if (!accessToken) {
+        throw new Error('Invalid or expired password reset link');
+      }
+
+      // Update the password using the access token
+      const { error } = await supabase.auth.updateUser({ 
+        password
+      });
+
       if (error) throw error;
+
+      // Sign out the user after password reset
+      await supabase.auth.signOut();
+      
       setSuccess(true);
       toast({
         title: 'Password reset successful',
         description: 'You can now log in with your new password.',
       });
+      
+      // Redirect to login page after a short delay
       setTimeout(() => {
-        window.location.href = '/';
+        navigate('/');
       }, 2000);
     } catch (err: any) {
       setError(err.message || 'An error occurred while resetting your password.');
@@ -88,7 +132,7 @@ const ResetPasswordForm: React.FC = () => {
             <div className="mt-4 text-sm text-center text-muted-foreground">
               <Button
                 variant="link"
-                onClick={() => (window.location.href = '/')}
+                onClick={() => navigate('/')}
                 className="p-0 text-alike-teal"
                 disabled={isLoading}
               >

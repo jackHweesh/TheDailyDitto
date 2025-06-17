@@ -52,7 +52,6 @@ const GroupView: React.FC<GroupViewProps> = ({ questionId, onBack, options, ques
   const { toast } = useToast();
   const { user } = useAuth();
 
-  // Move fetchGroups outside useEffect so it can be called elsewhere
   const fetchGroups = async () => {
     if (!user) return;
     setIsLoading(true);
@@ -130,8 +129,54 @@ const GroupView: React.FC<GroupViewProps> = ({ questionId, onBack, options, ques
     }
   };
 
+  const ensureFriendsGroup = async () => {
+    if (!user) return;
+    
+    try {
+      // Check if user already has a Friends group
+      const { data: existingGroup } = await supabase
+        .from('groups')
+        .select('id')
+        .eq('name', 'Friends')
+        .eq('owner_id', user.id)
+        .single();
+      
+      // If no Friends group exists, create one
+      if (!existingGroup) {
+        const { data: groupData, error: groupError } = await supabase
+          .from('groups')
+          .insert({
+            name: 'Friends',
+            owner_id: user.id,
+            created_by: user.id,
+            invite_code: nanoid(8)
+          })
+          .select()
+          .single();
+          
+        if (groupError) throw groupError;
+        
+        // Add user as owner of their Friends group
+        const { error: memberError } = await supabase
+          .from('group_members')
+          .insert({
+            group_id: groupData.id,
+            user_id: user.id,
+            status: 'owner'
+          });
+          
+        if (memberError) throw memberError;
+      }
+    } catch (error: any) {
+      console.error('Error ensuring Friends group:', error);
+    }
+  };
+
   useEffect(() => {
+    ensureFriendsGroup().then(() => {
     fetchGroups();
+    });
+    
     // Subscribe to group member changes
     const channel = supabase
       .channel('group_members_channel')
@@ -143,7 +188,6 @@ const GroupView: React.FC<GroupViewProps> = ({ questionId, onBack, options, ques
           table: 'group_members'
         },
         (payload) => {
-          // Refresh groups when membership changes
           fetchGroups();
         }
       )

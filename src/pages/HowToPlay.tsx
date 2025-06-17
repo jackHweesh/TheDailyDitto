@@ -43,7 +43,7 @@ const HowToPlay: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <Header hasVoted={hasVoted} onLogoClick={() => navigate('/')} fixed={false} />
+      <Header hasVoted={hasVoted} onLogoClick={() => navigate('/')} fixed={false} streak={0} />
       <main className="content-area flex-1 flex flex-col">
         <div className="flex flex-col items-center justify-center bg-gray-50 relative pt-0">
           <Card className="w-full max-w-xl p-8 mt-8 text-center relative">

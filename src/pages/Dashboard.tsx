@@ -13,6 +13,8 @@ import Logo from '@/components/Logo';
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from '@/components/ui/dropdown-menu';
 import { getBrowserFingerprint } from '@/utils/fingerprint';
 import { Capacitor } from '@capacitor/core';
+import Header from '@/components/Header';
+import { subDays, isSameDay } from 'date-fns';
 
 // Predefined colors for results visualization
 const RESULT_COLORS = [
@@ -39,6 +41,7 @@ const Dashboard: React.FC = () => {
   const [resultsLoading, setResultsLoading] = useState(false);
   const [isFirstLoad, setIsFirstLoad] = useState(true);
   const [isVoteStatusLoading, setIsVoteStatusLoading] = useState(true);
+  const [streak, setStreak] = useState(0);
   
   const { toast } = useToast();
   const { user, signOut } = useAuth();
@@ -71,6 +74,49 @@ const Dashboard: React.FC = () => {
       .is('user_id', null)
       .limit(1);
     return Array.isArray(anonVoteData) && anonVoteData.length > 0;
+  };
+
+  // Helper function to calculate streak
+  const calculateStreak = async (userId: string | null) => {
+    if (!userId) {
+      setStreak(0);
+      return;
+    }
+    try {
+      const { data: votes, error } = await supabase
+        .from('votes')
+        .select('created_at')
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false });
+      if (error) throw error;
+      if (!votes || votes.length === 0) {
+        setStreak(0);
+        return;
+      }
+      const dates = votes.map((vote: any) => new Date(vote.created_at));
+      dates.sort((a: Date, b: Date) => b.getTime() - a.getTime());
+      const today = new Date();
+      const mostRecentVote = dates[0];
+      if (!isSameDay(mostRecentVote, today)) {
+        setStreak(0);
+        return;
+      }
+      let currentStreak = 1;
+      let currentDate = today;
+      for (let i = 1; i < dates.length; i++) {
+        const previousDate = subDays(currentDate, 1);
+        const voteDate = dates[i];
+        if (isSameDay(voteDate, previousDate)) {
+          currentStreak++;
+          currentDate = previousDate;
+        } else {
+          break;
+        }
+      }
+      setStreak(currentStreak);
+    } catch (error) {
+      setStreak(0);
+    }
   };
 
   useEffect(() => {
@@ -186,6 +232,7 @@ const Dashboard: React.FC = () => {
       setResultsLoading(true);
       await fetchResults(questionData.id);
       setCurrentView(DashboardView.RESULTS);
+      await calculateStreak(user?.id ?? null);
     }
   };
   
@@ -239,49 +286,25 @@ const Dashboard: React.FC = () => {
     }
   }, [currentView, hasVoted, isVoteStatusLoading]);
 
+  // Update streak on login/logout and page load
+  useEffect(() => {
+    calculateStreak(user?.id ?? null);
+  }, [user]);
+
+  // Update streak when tab becomes visible
+  useEffect(() => {
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') {
+        calculateStreak(user?.id ?? null);
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibility);
+    return () => document.removeEventListener('visibilitychange', handleVisibility);
+  }, [user]);
+
   return (
     <div className="min-h-screen flex flex-col">
-      <header className="fixed-header bg-white shadow">
-        <div className="max-w-7xl mx-auto px-4 py-2 sm:px-6 flex items-center justify-between">
-          <button
-            type="button"
-            onClick={() => { if (hasVoted) setCurrentView(DashboardView.RESULTS); }}
-            style={{ background: 'none', border: 'none', padding: 0, cursor: hasVoted ? 'pointer' : 'default' }}
-            aria-label="Go to global results"
-            tabIndex={hasVoted ? 0 : -1}
-            disabled={!hasVoted}
-          >
-            <Logo />
-          </button>
-          <div className="flex items-center gap-2">
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  aria-label="Settings"
-                  className="text-gray-500 hover:text-gray-700 text-2xl h-8 w-8"
-                >
-                  <GearIcon className="w-full h-full" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className={isNative ? 'dropdown-menu-native' : ''}>
-                {user && <DropdownMenuItem onClick={() => setCurrentView(DashboardView.PROFILE)}>Profile</DropdownMenuItem>}
-                <DropdownMenuItem onClick={() => navigate('/how-to-play')}>How to Play</DropdownMenuItem>
-                <DropdownMenuItem onClick={() => navigate('/contact')}>Contact Us</DropdownMenuItem>
-                <DropdownMenuItem onClick={() => navigate('/privacy-policy')}>Privacy Policy</DropdownMenuItem>
-                <DropdownMenuItem onClick={() => navigate('/terms-of-service')}>Terms of Service</DropdownMenuItem>
-                {user ? (
-                  <DropdownMenuItem onClick={handleSignOut}>Log out</DropdownMenuItem>
-                ) : (
-                  <DropdownMenuItem onClick={() => navigate('/auth')}>Log in</DropdownMenuItem>
-                )}
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
-        </div>
-      </header>
-      
+      <Header hasVoted={hasVoted} onLogoClick={() => setCurrentView(DashboardView.RESULTS)} streak={streak} />
       {/* Main content */}
       <main className="content-area flex-1 flex flex-col">
         <div className="container mx-auto px-4 py-8 flex-1 flex flex-col">
@@ -320,7 +343,6 @@ const Dashboard: React.FC = () => {
           )}
         </div>
       </main>
-      
       {/* Footer */}
       <footer className="fixed-footer bg-white border-t w-full">
         <div className="max-w-7xl mx-auto px-4 py-4 sm:px-6 text-center">

@@ -5,19 +5,21 @@ import { Button, GearIcon } from '@/components/ui/button';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/context/AuthContext';
+import { StreakCounter } from '@/components/ui/streak-counter';
 
 interface HeaderProps {
   hasVoted: boolean;
   onLogoClick: () => void;
   fixed?: boolean;
+  streak: number;
 }
 
-const Header: React.FC<HeaderProps> = ({ hasVoted, onLogoClick, fixed = true }) => {
+const Header: React.FC<HeaderProps> = ({ hasVoted, onLogoClick, fixed = true, streak }) => {
   const navigate = useNavigate();
   const { user } = useAuth();
 
   return (
-    <header className={fixed ? "bg-white shadow sticky top-0" : "bg-white shadow"}>
+    <header className={fixed ? "bg-white shadow sticky top-0 z-50" : "bg-white shadow"}>
       <div className="max-w-7xl mx-auto px-4 py-2 sm:px-6 flex items-center justify-between">
         <button
           type="button"
@@ -29,7 +31,8 @@ const Header: React.FC<HeaderProps> = ({ hasVoted, onLogoClick, fixed = true }) 
         >
           <Logo />
         </button>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-4">
+          <StreakCounter count={streak} />
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button
