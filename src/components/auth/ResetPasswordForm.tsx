@@ -17,6 +17,9 @@ const ResetPasswordForm: React.FC = () => {
 
   // Get the access token from the URL
   useEffect(() => {
+    // Always sign out on mount to clear any session from Supabase PASSWORD_RECOVERY
+    supabase.auth.signOut();
+
     const hash = window.location.hash;
     const search = window.location.search;
     
