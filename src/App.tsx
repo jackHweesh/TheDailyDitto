@@ -3,7 +3,7 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
-import { AuthProvider } from "@/context/AuthContext";
+import { AuthProvider, useAuth } from "@/context/AuthContext";
 import { Capacitor } from '@capacitor/core';
 import './styles/mobile.css';
 import Index from "./pages/Index";
@@ -24,6 +24,7 @@ const queryClient = new QueryClient();
 
 const App = () => {
   const isNative = Capacitor.isNativePlatform();
+  const { isPasswordRecovery } = useAuth ? useAuth() : { isPasswordRecovery: false };
 
   useEffect(() => {
     if (isNative) {

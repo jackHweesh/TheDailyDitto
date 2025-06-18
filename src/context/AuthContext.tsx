@@ -8,6 +8,7 @@ interface AuthContextType {
   user: User | null;
   session: Session | null;
   isLoading: boolean;
+  isPasswordRecovery: boolean;
   signUp: (email: string, password: string, userData: any) => Promise<{ success: boolean; voteTransferred: boolean }>;
   signIn: (email: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
@@ -27,6 +28,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [session, setSession] = useState<Session | null>(null);
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isPasswordRecovery, setIsPasswordRecovery] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -35,11 +37,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       (event, currentSession) => {
         console.log('Auth state changed:', event);
         if (event === 'PASSWORD_RECOVERY') {
-          // Do NOT set user/session, let the reset password flow handle it
+          setIsPasswordRecovery(true);
           setSession(null);
           setUser(null);
           setIsLoading(false);
           return;
+        } else {
+          setIsPasswordRecovery(false);
         }
         setSession(currentSession);
         setUser(currentSession?.user ?? null);
@@ -292,6 +296,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     user,
     session,
     isLoading,
+    isPasswordRecovery,
     signUp,
     signIn,
     signOut,

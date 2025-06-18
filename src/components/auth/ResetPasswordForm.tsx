@@ -6,6 +6,7 @@ import { useToast } from '@/components/ui/use-toast';
 import Logo from '../Logo';
 import { supabase } from '@/integrations/supabase/client';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '@/context/AuthContext';
 
 const ResetPasswordForm: React.FC = () => {
   const [password, setPassword] = useState('');
@@ -14,6 +15,13 @@ const ResetPasswordForm: React.FC = () => {
   const [error, setError] = useState('');
   const { toast } = useToast();
   const navigate = useNavigate();
+  const { isPasswordRecovery } = useAuth();
+
+  // If not in password recovery mode, show nothing (or redirect to login)
+  if (!isPasswordRecovery) {
+    navigate('/');
+    return null;
+  }
 
   // Get the access token from the URL
   useEffect(() => {
