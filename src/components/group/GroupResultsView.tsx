@@ -747,7 +747,7 @@ const GroupResultsView: React.FC<GroupResultsViewProps> = ({
                           setInviteError(null);
                           setInviteSuccess(false);
                           try {
-                            const res = await fetch('/functions/v1/send-friend-invite', {
+                            const res = await fetch('https://clvtxmkpsmacvhvyhwob.functions.supabase.co/send-friend-invite', {
                               method: 'POST',
                               headers: { 'Content-Type': 'application/json' },
                               body: JSON.stringify({
