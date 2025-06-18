@@ -218,6 +218,39 @@ export type Database = {
           created_at?: string
         }
         Relationships: []
+      },
+      friend_invites: {
+        Row: {
+          id: string
+          from_user_id: string
+          to_email: string
+          token: string
+          status: string
+          created_at: string
+          accepted_at: string | null
+          expires_at: string | null
+        }
+        Insert: {
+          id?: string
+          from_user_id: string
+          to_email: string
+          token: string
+          status?: string
+          created_at?: string
+          accepted_at?: string | null
+          expires_at?: string | null
+        }
+        Update: {
+          id?: string
+          from_user_id?: string
+          to_email?: string
+          token?: string
+          status?: string
+          created_at?: string
+          accepted_at?: string | null
+          expires_at?: string | null
+        }
+        Relationships: []
       }
     }
     Views: {

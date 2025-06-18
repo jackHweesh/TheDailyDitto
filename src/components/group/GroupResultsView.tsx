@@ -132,6 +132,13 @@ const GroupResultsView: React.FC<GroupResultsViewProps> = ({
   const [showPendingDialog, setShowPendingDialog] = useState(false);
   const [pendingAction, setPendingAction] = useState<string | null>(null);
 
+  // Add state for invite dialog
+  const [showInviteDialog, setShowInviteDialog] = useState(false);
+  const [inviteEmail, setInviteEmail] = useState('');
+  const [inviteLoading, setInviteLoading] = useState(false);
+  const [inviteError, setInviteError] = useState<string | null>(null);
+  const [inviteSuccess, setInviteSuccess] = useState(false);
+
   const fetchPendingRequests = useCallback(async () => {
     if (!user) return;
     // Get group owner
@@ -717,13 +724,72 @@ const GroupResultsView: React.FC<GroupResultsViewProps> = ({
           </Popover>
           <div className="flex items-center gap-1 bg-alike-teal/10 rounded-full px-3 py-1.5">
             {groupName === 'Friends' ? (
-              <Button
-                variant="outline"
-                className="text-alike-teal border-alike-teal hover:bg-alike-teal/10"
-                disabled
-              >
-                Send Friend Invite
-              </Button>
+              <>
+                <Button
+                  variant="outline"
+                  className="text-alike-teal border-alike-teal"
+                  onClick={() => setShowInviteDialog(true)}
+                >
+                  Send Friend Invite
+                </Button>
+                <Dialog open={showInviteDialog} onOpenChange={setShowInviteDialog}>
+                  <DialogContent>
+                    <DialogHeader>
+                      <DialogTitle>Send Friend Invite</DialogTitle>
+                    </DialogHeader>
+                    {inviteSuccess ? (
+                      <div className="py-4 text-green-600">Invite sent successfully!</div>
+                    ) : (
+                      <form
+                        onSubmit={async (e) => {
+                          e.preventDefault();
+                          setInviteLoading(true);
+                          setInviteError(null);
+                          setInviteSuccess(false);
+                          try {
+                            const res = await fetch('/functions/v1/send-friend-invite', {
+                              method: 'POST',
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({
+                                from_user_id: user.id,
+                                to_email: inviteEmail,
+                                sender_name: user.user_metadata?.first_name || user.email || 'A Ditto user',
+                              }),
+                            });
+                            const data = await res.json();
+                            if (!res.ok) throw new Error(data.error || 'Failed to send invite');
+                            setInviteSuccess(true);
+                            setInviteEmail('');
+                          } catch (err: any) {
+                            setInviteError(err.message || 'Failed to send invite');
+                          } finally {
+                            setInviteLoading(false);
+                          }
+                        }}
+                        className="space-y-4"
+                      >
+                        <Input
+                          type="email"
+                          placeholder="Enter email address"
+                          value={inviteEmail}
+                          onChange={e => setInviteEmail(e.target.value)}
+                          required
+                          disabled={inviteLoading}
+                        />
+                        {inviteError && <div className="text-red-600 text-sm">{inviteError}</div>}
+                        <DialogFooter>
+                          <Button type="button" variant="outline" onClick={() => setShowInviteDialog(false)} disabled={inviteLoading}>
+                            Cancel
+                          </Button>
+                          <Button type="submit" className="bg-alike-teal text-white" disabled={inviteLoading || !inviteEmail}>
+                            {inviteLoading ? 'Sending...' : 'Send Invite'}
+                          </Button>
+                        </DialogFooter>
+                      </form>
+                    )}
+                  </DialogContent>
+                </Dialog>
+              </>
             ) : (
               <>
             <span className="text-xs font-medium text-alike-teal">Invite: {inviteCode}</span>
