@@ -1,0 +1,2 @@
+[functions.generate-friend-invite]
+verify_jwt = false 

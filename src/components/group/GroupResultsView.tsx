@@ -134,10 +134,11 @@ const GroupResultsView: React.FC<GroupResultsViewProps> = ({
 
   // Add state for invite dialog
   const [showInviteDialog, setShowInviteDialog] = useState(false);
-  const [inviteEmail, setInviteEmail] = useState('');
   const [inviteLoading, setInviteLoading] = useState(false);
   const [inviteError, setInviteError] = useState<string | null>(null);
   const [inviteSuccess, setInviteSuccess] = useState(false);
+  const [inviteLink, setInviteLink] = useState<string>('');
+  const [showInviteLink, setShowInviteLink] = useState(false);
 
   const fetchPendingRequests = useCallback(async () => {
     if (!user) return;
@@ -737,55 +738,101 @@ const GroupResultsView: React.FC<GroupResultsViewProps> = ({
                     <DialogHeader>
                       <DialogTitle>Send Friend Invite</DialogTitle>
                     </DialogHeader>
-                    {inviteSuccess ? (
-                      <div className="py-4 text-green-600">Invite sent successfully!</div>
+                    {showInviteLink ? (
+                      <div className="space-y-4">
+                        <div className="text-center">
+                          <p className="text-sm text-gray-600 mb-4">
+                            Share this link with your friend to invite them to Ditto:
+                          </p>
+                          <div className="bg-gray-50 p-3 rounded-md border">
+                            <p className="text-xs text-gray-500 break-all">{inviteLink}</p>
+                          </div>
+                        </div>
+                        <div className="flex gap-2">
+                          <Button
+                            onClick={() => {
+                              navigator.clipboard.writeText(inviteLink);
+                              toast({
+                                title: "Link copied!",
+                                description: "The invite link has been copied to your clipboard.",
+                              });
+                            }}
+                            className="flex-1 bg-alike-teal hover:bg-alike-teal/90 text-white"
+                          >
+                            Copy Link
+                          </Button>
+                          <Button
+                            onClick={() => {
+                              setShowInviteLink(false);
+                              setInviteLink('');
+                              setInviteSuccess(false);
+                            }}
+                            variant="outline"
+                          >
+                            New Invite
+                          </Button>
+                        </div>
+                        <div className="text-center">
+                          <Button
+                            onClick={() => setShowInviteDialog(false)}
+                            variant="ghost"
+                            className="text-gray-500"
+                          >
+                            Close
+                          </Button>
+                        </div>
+                      </div>
+                    ) : inviteSuccess ? (
+                      <div className="py-4 text-green-600">Invite link generated successfully!</div>
                     ) : (
-                      <form
-                        onSubmit={async (e) => {
-                          e.preventDefault();
-                          setInviteLoading(true);
-                          setInviteError(null);
-                          setInviteSuccess(false);
-                          try {
-                            const res = await fetch('https://clvtxmkpsmacvhvyhwob.functions.supabase.co/send-friend-invite', {
-                              method: 'POST',
-                              headers: { 'Content-Type': 'application/json' },
-                              body: JSON.stringify({
-                                from_user_id: user.id,
-                                to_email: inviteEmail,
-                                sender_name: user.user_metadata?.first_name || user.email || 'A Ditto user',
-                              }),
-                            });
-                            const data = await res.json();
-                            if (!res.ok) throw new Error(data.error || 'Failed to send invite');
-                            setInviteSuccess(true);
-                            setInviteEmail('');
-                          } catch (err: any) {
-                            setInviteError(err.message || 'Failed to send invite');
-                          } finally {
-                            setInviteLoading(false);
-                          }
-                        }}
-                        className="space-y-4"
-                      >
-                        <Input
-                          type="email"
-                          placeholder="Enter email address"
-                          value={inviteEmail}
-                          onChange={e => setInviteEmail(e.target.value)}
-                          required
-                          disabled={inviteLoading}
-                        />
+                      <div className="space-y-4">
+                        <p className="text-sm text-gray-600">
+                          Generate a unique invite link to share with your friend. The link will be valid for 24 hours.
+                        </p>
                         {inviteError && <div className="text-red-600 text-sm">{inviteError}</div>}
                         <DialogFooter>
-                          <Button type="button" variant="outline" onClick={() => setShowInviteDialog(false)} disabled={inviteLoading}>
+                          <Button 
+                            type="button" 
+                            variant="outline" 
+                            onClick={() => setShowInviteDialog(false)} 
+                            disabled={inviteLoading}
+                          >
                             Cancel
                           </Button>
-                          <Button type="submit" className="bg-alike-teal text-white" disabled={inviteLoading || !inviteEmail}>
-                            {inviteLoading ? 'Sending...' : 'Send Invite'}
+                          <Button 
+                            onClick={async () => {
+                              setInviteLoading(true);
+                              setInviteError(null);
+                              setInviteSuccess(false);
+                              try {
+                                // Get the user's JWT for the Authorization header
+                                const { data: { session } } = await supabase.auth.getSession();
+                                const accessToken = session?.access_token;
+                                const res = await fetch('https://clvtxmkpsmacvhvyhwob.supabase.co/functions/v1/generate-friend-invite', {
+                                  method: 'POST',
+                                  headers: {
+                                    'Content-Type': 'application/json',
+                                    ...(accessToken ? { 'Authorization': `Bearer ${accessToken}` } : {}),
+                                  },
+                                });
+                                const data = await res.json();
+                                if (!res.ok) throw new Error(data.error || 'Failed to generate invite');
+                                setInviteLink(data.invite_link);
+                                setInviteSuccess(true);
+                                setShowInviteLink(true);
+                              } catch (err: any) {
+                                setInviteError(err.message || 'Failed to generate invite');
+                              } finally {
+                                setInviteLoading(false);
+                              }
+                            }}
+                            className="bg-alike-teal text-white" 
+                            disabled={inviteLoading}
+                          >
+                            {inviteLoading ? 'Generating...' : 'Generate Invite Link'}
                           </Button>
                         </DialogFooter>
-                      </form>
+                      </div>
                     )}
                   </DialogContent>
                 </Dialog>

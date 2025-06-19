@@ -108,10 +108,22 @@ const GroupView: React.FC<GroupViewProps> = ({ questionId, onBack, options, ques
             if (b.name === 'Friends' && b.owner_id === user.id) return 1;
             return 0;
           });
-          setGroups(groupsWithCounts);
+
+          // Deduplicate Friends groups - only keep the first one for the current user
+          const seenFriends = new Set();
+          const dedupedGroups = groupsWithCounts.filter(g => {
+            if (g.name === 'Friends' && g.owner_id === user.id) {
+              if (seenFriends.has(g.owner_id)) return false;
+              seenFriends.add(g.owner_id);
+              return true;
+            }
+            return true;
+          });
+
+          setGroups(dedupedGroups);
           // Set active group based on URL if available
           if (groupId) {
-            const group = groupsWithCounts.find(g => g.id === groupId);
+            const group = dedupedGroups.find(g => g.id === groupId);
             if (group) {
               setActiveGroup(group);
             }

@@ -17,6 +17,7 @@ import Contact from "./pages/Contact";
 import HowToPlay from "./pages/HowToPlay";
 import Profile from "./pages/Profile";
 import SignupPrompt from "./components/auth/SignupPrompt";
+import FriendInvite from "./pages/FriendInvite";
 import { useEffect } from 'react';
 import { StatusBar, Style } from '@capacitor/status-bar';
 
@@ -54,6 +55,7 @@ const App = () => {
                 <Route path="/how-to-play" element={<HowToPlay />} />
                 <Route path="/profile" element={<Profile />} />
                 <Route path="/signup-prompt" element={<SignupPrompt />} />
+                <Route path="/invite/friend/:token" element={<FriendInvite />} />
                 <Route path="*" element={<NotFound />} />
               </Routes>
             </BrowserRouter>

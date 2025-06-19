@@ -34,7 +34,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => {
     // First set up the auth state listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (event, currentSession) => {
+      async (event, currentSession) => {
         console.log('Auth state changed:', event);
         if (event === 'PASSWORD_RECOVERY') {
           setIsPasswordRecovery(true);
@@ -48,6 +48,53 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setSession(currentSession);
         setUser(currentSession?.user ?? null);
         setIsLoading(false);
+
+        // Handle pending friend invite after successful authentication
+        if (event === 'SIGNED_IN' && currentSession?.user) {
+          const pendingInvite = localStorage.getItem('pendingFriendInvite');
+          if (pendingInvite) {
+            try {
+              const { data: { session } } = await supabase.auth.getSession();
+              const accessToken = session?.access_token;
+
+              const response = await fetch('https://clvtxmkpsmacvhvyhwob.functions.supabase.co/accept-friend-invite', {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  ...(accessToken ? { 'Authorization': `Bearer ${accessToken}` } : {}),
+                },
+                body: JSON.stringify({
+                  token: pendingInvite,
+                  recipient_user_id: currentSession.user.id,
+                }),
+              });
+
+              const data = await response.json();
+
+              if (response.ok) {
+                toast({
+                  title: "Friend request accepted!",
+                  description: "You are now friends with this user.",
+                });
+              } else {
+                toast({
+                  title: "Friend invite error",
+                  description: data.error || "Failed to accept friend request",
+                  variant: "destructive",
+                });
+              }
+            } catch (error: any) {
+              toast({
+                title: "Friend invite error",
+                description: error.message || "An error occurred while processing the friend invite",
+                variant: "destructive",
+              });
+            } finally {
+              // Clear the pending invite regardless of success/failure
+              localStorage.removeItem('pendingFriendInvite');
+            }
+          }
+        }
       }
     );
 

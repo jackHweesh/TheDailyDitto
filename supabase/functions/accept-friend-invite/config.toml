@@ -1,0 +1,2 @@
+[functions.accept-friend-invite]
+verify_jwt = false 
