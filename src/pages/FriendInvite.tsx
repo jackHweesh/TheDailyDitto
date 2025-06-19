@@ -1,37 +1,42 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import { Card, CardContent, CardHeader } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
 import { useAuth } from '@/context/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
+import { useToast } from '@/hooks/use-toast';
+import { Loader2, CheckCircle, XCircle, ArrowRight } from 'lucide-react';
 
 const FriendInvite = () => {
   const { token } = useParams<{ token: string }>();
   const { user } = useAuth();
   const navigate = useNavigate();
+  const { toast } = useToast();
+  const [isLoading, setIsLoading] = useState(true);
+  const [status, setStatus] = useState<'loading' | 'success' | 'error' | 'expired' | 'self'>('loading');
+  const [errorMessage, setErrorMessage] = useState('');
 
   useEffect(() => {
-    let mounted = true;
-
-    const processInvite = async () => {
-      // If no token, go home
+    const handleInvite = async () => {
       if (!token) {
-        navigate('/');
-        return;
-      }
-
-      // If not logged in, save token and go to auth
-      if (!user) {
-        localStorage.setItem('pendingFriendInvite', token);
-        navigate('/auth');
+        setStatus('error');
+        setErrorMessage('Invalid invite link');
+        setIsLoading(false);
         return;
       }
 
       try {
+        // If user is not logged in, redirect to auth
+        if (!user) {
+          // Store the invite token in localStorage to process after login
+          localStorage.setItem('pendingFriendInvite', token);
+          navigate('/auth');
+          return;
+        }
+
+        // User is logged in, process the invite
         const { data: { session } } = await supabase.auth.getSession();
         const accessToken = session?.access_token;
-
-        // Set a timeout for the fetch request
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
 
         const response = await fetch('https://clvtxmkpsmacvhvyhwob.supabase.co/functions/v1/accept-friend-invite', {
           method: 'POST',
@@ -43,34 +48,129 @@ const FriendInvite = () => {
             token: token,
             recipient_user_id: user.id,
           }),
-          signal: controller.signal,
         });
 
-        clearTimeout(timeoutId);
+        const data = await response.json();
 
-        // Only proceed if component is still mounted
-        if (mounted) {
-          // Always navigate home, regardless of response
-          navigate('/');
+        if (response.ok) {
+          setStatus('success');
+          toast({
+            title: "Friend request accepted!",
+            description: "You are now friends with this user.",
+          });
+          
+          // Redirect to dashboard after a short delay
+          setTimeout(() => {
+            navigate('/');
+          }, 2000);
+        } else {
+          // Special handling for self-invite case
+          if (data.error === 'Cannot invite yourself') {
+            setStatus('self');
+          } else if (data.error.includes('expired')) {
+            setStatus('expired');
+          } else {
+            setStatus('error');
+            setErrorMessage(data.error || 'Failed to accept friend request');
+          }
         }
-      } catch (error) {
-        // If component is still mounted, navigate home
-        if (mounted) {
-          navigate('/');
-        }
+      } catch (error: any) {
+        setStatus('error');
+        setErrorMessage(error.message || 'An error occurred');
+      } finally {
+        setIsLoading(false);
       }
     };
 
-    processInvite();
+    handleInvite();
+  }, [token, user, navigate, toast]);
 
-    // Cleanup function
-    return () => {
-      mounted = false;
-    };
-  }, [token, user, navigate]);
+  const handleSignup = () => {
+    navigate('/auth');
+  };
 
-  // Return null - no loading state needed
-  return null;
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <Card className="w-full max-w-md mx-auto shadow-lg border-0">
+          <CardContent className="flex flex-col items-center justify-center py-12">
+            <Loader2 className="h-8 w-8 animate-spin text-alike-teal mb-4" />
+            <p className="text-lg font-medium text-alike-navy">Processing invite...</p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      <Card className="w-full max-w-md mx-auto shadow-lg border-0">
+        <CardHeader className="text-center pb-4">
+          <h1 className="text-2xl font-bold text-alike-navy">Friend Invite</h1>
+        </CardHeader>
+        <CardContent className="flex flex-col items-center space-y-4 py-6">
+          {status === 'success' && (
+            <>
+              <CheckCircle className="h-16 w-16 text-green-500" />
+              <div className="text-center">
+                <h2 className="text-xl font-semibold text-green-600 mb-2">Success!</h2>
+                <p className="text-gray-600">You are now friends with this user.</p>
+                <p className="text-sm text-gray-500 mt-2">Redirecting to dashboard...</p>
+              </div>
+            </>
+          )}
+
+          {status === 'self' && (
+            <>
+              <ArrowRight className="h-16 w-16 text-alike-teal" />
+              <div className="text-center">
+                <h2 className="text-xl font-semibold text-alike-teal mb-2">This is your invite link</h2>
+                <p className="text-gray-600">Share this link with friends you want to invite to Ditto!</p>
+                <Button 
+                  onClick={() => navigate('/')}
+                  className="mt-4 bg-alike-teal hover:bg-alike-teal/90 text-white"
+                >
+                  Go to Dashboard
+                </Button>
+              </div>
+            </>
+          )}
+
+          {status === 'error' && (
+            <>
+              <XCircle className="h-16 w-16 text-red-500" />
+              <div className="text-center">
+                <h2 className="text-xl font-semibold text-red-600 mb-2">Error</h2>
+                <p className="text-gray-600">{errorMessage}</p>
+                <Button 
+                  onClick={() => navigate('/')}
+                  className="mt-4 bg-alike-teal hover:bg-alike-teal/90 text-white"
+                >
+                  Go to Dashboard
+                </Button>
+              </div>
+            </>
+          )}
+
+          {status === 'expired' && (
+            <>
+              <XCircle className="h-16 w-16 text-orange-500" />
+              <div className="text-center">
+                <h2 className="text-xl font-semibold text-orange-600 mb-2">Invite Expired</h2>
+                <p className="text-gray-600">This friend invite has expired.</p>
+                <Button 
+                  onClick={() => navigate('/')}
+                  className="mt-4 bg-alike-teal hover:bg-alike-teal/90 text-white"
+                >
+                  Go to Dashboard
+                </Button>
+              </div>
+            </>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  );
 };
 
 export default FriendInvite; 

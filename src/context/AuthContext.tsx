@@ -57,11 +57,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               const { data: { session } } = await supabase.auth.getSession();
               const accessToken = session?.access_token;
 
-              // Set a timeout for the fetch request
-              const controller = new AbortController();
-              const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
-
-              await fetch('https://clvtxmkpsmacvhvyhwob.supabase.co/functions/v1/accept-friend-invite', {
+              const response = await fetch('https://clvtxmkpsmacvhvyhwob.functions.supabase.co/accept-friend-invite', {
                 method: 'POST',
                 headers: {
                   'Content-Type': 'application/json',
@@ -71,14 +67,30 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                   token: pendingInvite,
                   recipient_user_id: currentSession.user.id,
                 }),
-                signal: controller.signal,
               });
 
-              clearTimeout(timeoutId);
-            } catch (error) {
-              console.error('Error processing friend invite:', error);
+              const data = await response.json();
+
+              if (response.ok) {
+                toast({
+                  title: "Friend request accepted!",
+                  description: "You are now friends with this user.",
+                });
+              } else {
+                toast({
+                  title: "Friend invite error",
+                  description: data.error || "Failed to accept friend request",
+                  variant: "destructive",
+                });
+              }
+            } catch (error: any) {
+              toast({
+                title: "Friend invite error",
+                description: error.message || "An error occurred while processing the friend invite",
+                variant: "destructive",
+              });
             } finally {
-              // Always clear the pending invite
+              // Clear the pending invite regardless of success/failure
               localStorage.removeItem('pendingFriendInvite');
             }
           }
