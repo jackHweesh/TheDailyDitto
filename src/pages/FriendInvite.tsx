@@ -50,9 +50,27 @@ const FriendInvite = () => {
           }),
         });
 
-        const data = await response.json();
+        // Add timeout protection and better error handling
+        if (!response.ok) {
+          const errorText = await response.text();
+          let errorData;
+          try {
+            errorData = JSON.parse(errorText);
+          } catch {
+            errorData = { error: 'Invalid response from server' };
+          }
 
-        if (response.ok) {
+          // Special handling for self-invite case
+          if (errorData.error === 'Cannot invite yourself') {
+            setStatus('self');
+          } else if (errorData.error && errorData.error.includes('expired')) {
+            setStatus('expired');
+          } else {
+            setStatus('error');
+            setErrorMessage(errorData.error || 'Failed to accept friend request');
+          }
+        } else {
+          const data = await response.json();
           setStatus('success');
           toast({
             title: "Friend request accepted!",
@@ -63,27 +81,30 @@ const FriendInvite = () => {
           setTimeout(() => {
             navigate('/');
           }, 2000);
-        } else {
-          // Special handling for self-invite case
-          if (data.error === 'Cannot invite yourself') {
-            setStatus('self');
-          } else if (data.error.includes('expired')) {
-            setStatus('expired');
-          } else {
-            setStatus('error');
-            setErrorMessage(data.error || 'Failed to accept friend request');
-          }
         }
       } catch (error: any) {
+        console.error('Friend invite error:', error);
         setStatus('error');
         setErrorMessage(error.message || 'An error occurred');
       } finally {
+        // Always ensure loading state is cleared
         setIsLoading(false);
       }
     };
 
+    // Add timeout protection for the entire operation
+    const timeoutId = setTimeout(() => {
+      if (isLoading) {
+        setStatus('error');
+        setErrorMessage('Request timed out. Please try again.');
+        setIsLoading(false);
+      }
+    }, 30000); // 30 second timeout
+
     handleInvite();
-  }, [token, user, navigate, toast]);
+
+    return () => clearTimeout(timeoutId);
+  }, [token, user, navigate, toast, isLoading]);
 
   const handleSignup = () => {
     navigate('/auth');

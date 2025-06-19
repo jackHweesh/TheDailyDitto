@@ -53,6 +53,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (event === 'SIGNED_IN' && currentSession?.user) {
           const pendingInvite = localStorage.getItem('pendingFriendInvite');
           if (pendingInvite) {
+            // Clear immediately to prevent processing multiple times
+            localStorage.removeItem('pendingFriendInvite');
+            
             try {
               const { data: { session } } = await supabase.auth.getSession();
               const accessToken = session?.access_token;
@@ -69,29 +72,33 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 }),
               });
 
-              const data = await response.json();
-
               if (response.ok) {
                 toast({
                   title: "Friend request accepted!",
                   description: "You are now friends with this user.",
                 });
               } else {
+                const errorText = await response.text();
+                let errorData;
+                try {
+                  errorData = JSON.parse(errorText);
+                } catch {
+                  errorData = { error: 'Invalid response from server' };
+                }
+                
                 toast({
                   title: "Friend invite error",
-                  description: data.error || "Failed to accept friend request",
+                  description: errorData.error || "Failed to accept friend request",
                   variant: "destructive",
                 });
               }
             } catch (error: any) {
+              console.error('Pending invite processing error:', error);
               toast({
                 title: "Friend invite error",
-                description: error.message || "An error occurred while processing the friend invite",
+                description: "An error occurred while processing the friend invite. You can try the invite link again.",
                 variant: "destructive",
               });
-            } finally {
-              // Clear the pending invite regardless of success/failure
-              localStorage.removeItem('pendingFriendInvite');
             }
           }
         }

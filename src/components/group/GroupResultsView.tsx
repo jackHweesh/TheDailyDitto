@@ -691,6 +691,18 @@ const GroupResultsView: React.FC<GroupResultsViewProps> = ({
     await fetchPendingRequests();
   };
 
+  // Add cleanup on unmount
+  useEffect(() => {
+    return () => {
+      // Cleanup function to prevent memory leaks
+      setInviteLoading(false);
+      setInviteError(null);
+      setInviteSuccess(false);
+      setShowInviteLink(false);
+      setInviteLink('');
+    };
+  }, []);
+
   return (
     <Card className="w-full max-w-3xl mx-auto shadow-lg border-0 animate-fade-in">
       <CardHeader className="space-y-1">
@@ -801,26 +813,51 @@ const GroupResultsView: React.FC<GroupResultsViewProps> = ({
                           </Button>
                           <Button 
                             onClick={async () => {
+                              if (inviteLoading) return; // Prevent multiple clicks
+                              
                               setInviteLoading(true);
                               setInviteError(null);
                               setInviteSuccess(false);
+                              
                               try {
                                 // Get the user's JWT for the Authorization header
                                 const { data: { session } } = await supabase.auth.getSession();
                                 const accessToken = session?.access_token;
+                                
+                                if (!accessToken) {
+                                  throw new Error('Authentication required');
+                                }
+                                
                                 const res = await fetch('https://clvtxmkpsmacvhvyhwob.supabase.co/functions/v1/generate-friend-invite', {
                                   method: 'POST',
                                   headers: {
                                     'Content-Type': 'application/json',
-                                    ...(accessToken ? { 'Authorization': `Bearer ${accessToken}` } : {}),
+                                    'Authorization': `Bearer ${accessToken}`,
                                   },
                                 });
+                                
+                                if (!res.ok) {
+                                  const errorText = await res.text();
+                                  let errorData;
+                                  try {
+                                    errorData = JSON.parse(errorText);
+                                  } catch {
+                                    errorData = { error: 'Invalid response from server' };
+                                  }
+                                  throw new Error(errorData.error || 'Failed to generate invite');
+                                }
+                                
                                 const data = await res.json();
-                                if (!res.ok) throw new Error(data.error || 'Failed to generate invite');
+                                
+                                if (!data.invite_link) {
+                                  throw new Error('Invalid response: missing invite link');
+                                }
+                                
                                 setInviteLink(data.invite_link);
                                 setInviteSuccess(true);
                                 setShowInviteLink(true);
                               } catch (err: any) {
+                                console.error('Invite generation error:', err);
                                 setInviteError(err.message || 'Failed to generate invite');
                               } finally {
                                 setInviteLoading(false);
