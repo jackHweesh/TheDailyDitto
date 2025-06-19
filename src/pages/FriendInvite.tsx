@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { useAuth } from '@/context/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, CheckCircle, XCircle } from 'lucide-react';
+import { Loader2, CheckCircle, XCircle, ArrowRight } from 'lucide-react';
 
 const FriendInvite = () => {
   const { token } = useParams<{ token: string }>();
@@ -13,7 +13,7 @@ const FriendInvite = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(true);
-  const [status, setStatus] = useState<'loading' | 'success' | 'error' | 'expired'>('loading');
+  const [status, setStatus] = useState<'loading' | 'success' | 'error' | 'expired' | 'self'>('loading');
   const [errorMessage, setErrorMessage] = useState('');
 
   useEffect(() => {
@@ -64,8 +64,15 @@ const FriendInvite = () => {
             navigate('/');
           }, 2000);
         } else {
-          setStatus('error');
-          setErrorMessage(data.error || 'Failed to accept friend request');
+          // Special handling for self-invite case
+          if (data.error === 'Cannot invite yourself') {
+            setStatus('self');
+          } else if (data.error.includes('expired')) {
+            setStatus('expired');
+          } else {
+            setStatus('error');
+            setErrorMessage(data.error || 'Failed to accept friend request');
+          }
         }
       } catch (error: any) {
         setStatus('error');
@@ -101,11 +108,11 @@ const FriendInvite = () => {
         <CardHeader className="text-center pb-4">
           <h1 className="text-2xl font-bold text-alike-navy">Friend Invite</h1>
         </CardHeader>
-        <CardContent className="text-center space-y-6">
+        <CardContent className="flex flex-col items-center space-y-4 py-6">
           {status === 'success' && (
             <>
-              <CheckCircle className="h-16 w-16 text-green-500 mx-auto" />
-              <div>
+              <CheckCircle className="h-16 w-16 text-green-500" />
+              <div className="text-center">
                 <h2 className="text-xl font-semibold text-green-600 mb-2">Success!</h2>
                 <p className="text-gray-600">You are now friends with this user.</p>
                 <p className="text-sm text-gray-500 mt-2">Redirecting to dashboard...</p>
@@ -113,10 +120,26 @@ const FriendInvite = () => {
             </>
           )}
 
+          {status === 'self' && (
+            <>
+              <ArrowRight className="h-16 w-16 text-alike-teal" />
+              <div className="text-center">
+                <h2 className="text-xl font-semibold text-alike-teal mb-2">This is your invite link</h2>
+                <p className="text-gray-600">Share this link with friends you want to invite to Ditto!</p>
+                <Button 
+                  onClick={() => navigate('/')}
+                  className="mt-4 bg-alike-teal hover:bg-alike-teal/90 text-white"
+                >
+                  Go to Dashboard
+                </Button>
+              </div>
+            </>
+          )}
+
           {status === 'error' && (
             <>
-              <XCircle className="h-16 w-16 text-red-500 mx-auto" />
-              <div>
+              <XCircle className="h-16 w-16 text-red-500" />
+              <div className="text-center">
                 <h2 className="text-xl font-semibold text-red-600 mb-2">Error</h2>
                 <p className="text-gray-600">{errorMessage}</p>
                 <Button 
@@ -131,8 +154,8 @@ const FriendInvite = () => {
 
           {status === 'expired' && (
             <>
-              <XCircle className="h-16 w-16 text-orange-500 mx-auto" />
-              <div>
+              <XCircle className="h-16 w-16 text-orange-500" />
+              <div className="text-center">
                 <h2 className="text-xl font-semibold text-orange-600 mb-2">Invite Expired</h2>
                 <p className="text-gray-600">This friend invite has expired.</p>
                 <Button 
