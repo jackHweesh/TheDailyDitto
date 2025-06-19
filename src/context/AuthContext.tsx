@@ -51,50 +51,34 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
         // Handle pending friend invite after successful authentication
         if (event === 'SIGNED_IN' && currentSession?.user) {
-          const pendingInviteData = localStorage.getItem('pendingFriendInvite');
-          if (pendingInviteData) {
+          const pendingInvite = localStorage.getItem('pendingFriendInvite');
+          if (pendingInvite) {
             try {
-              // Parse the stored invite data
-              const { token, timestamp } = JSON.parse(pendingInviteData);
-              
-              // Check if the invite is still valid (24 hours)
-              const now = Date.now();
-              const inviteTime = parseInt(timestamp);
-              if (now - inviteTime > 24 * 60 * 60 * 1000) {
-                // Invite is too old, remove it
-                localStorage.removeItem('pendingFriendInvite');
-                return;
-              }
-
               const { data: { session } } = await supabase.auth.getSession();
               const accessToken = session?.access_token;
 
-              const response = await fetch('https://clvtxmkpsmacvhvyhwob.supabase.co/functions/v1/accept-friend-invite', {
+              // Set a timeout for the fetch request
+              const controller = new AbortController();
+              const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+
+              await fetch('https://clvtxmkpsmacvhvyhwob.supabase.co/functions/v1/accept-friend-invite', {
                 method: 'POST',
                 headers: {
                   'Content-Type': 'application/json',
                   ...(accessToken ? { 'Authorization': `Bearer ${accessToken}` } : {}),
                 },
                 body: JSON.stringify({
-                  token: token,
+                  token: pendingInvite,
                   recipient_user_id: currentSession.user.id,
                 }),
+                signal: controller.signal,
               });
 
-              // Always clear the invite after attempting to process it
-              localStorage.removeItem('pendingFriendInvite');
-
-              if (!response.ok) {
-                const data = await response.json();
-                if (data.error?.includes('expired') || data.error?.includes('already used')) {
-                  toast({
-                    title: "Invite link no longer valid",
-                    description: "This invite has expired or was already used.",
-                  });
-                }
-              }
-            } catch (error: any) {
-              // If there's any error parsing or processing the invite, just remove it
+              clearTimeout(timeoutId);
+            } catch (error) {
+              console.error('Error processing friend invite:', error);
+            } finally {
+              // Always clear the pending invite
               localStorage.removeItem('pendingFriendInvite');
             }
           }

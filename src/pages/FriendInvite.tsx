@@ -9,30 +9,31 @@ const FriendInvite = () => {
   const navigate = useNavigate();
 
   useEffect(() => {
-    // If no token, redirect to home
-    if (!token) {
-      navigate('/');
-      return;
-    }
+    let mounted = true;
 
-    // If user is not logged in, save token and redirect to auth
-    if (!user) {
-      // Store both token and timestamp
-      localStorage.setItem('pendingFriendInvite', JSON.stringify({
-        token,
-        timestamp: Date.now().toString()
-      }));
-      navigate('/auth');
-      return;
-    }
-
-    // Process the invite and redirect
     const processInvite = async () => {
+      // If no token, go home
+      if (!token) {
+        navigate('/');
+        return;
+      }
+
+      // If not logged in, save token and go to auth
+      if (!user) {
+        localStorage.setItem('pendingFriendInvite', token);
+        navigate('/auth');
+        return;
+      }
+
       try {
         const { data: { session } } = await supabase.auth.getSession();
         const accessToken = session?.access_token;
 
-        await fetch('https://clvtxmkpsmacvhvyhwob.supabase.co/functions/v1/accept-friend-invite', {
+        // Set a timeout for the fetch request
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+
+        const response = await fetch('https://clvtxmkpsmacvhvyhwob.supabase.co/functions/v1/accept-friend-invite', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -42,28 +43,33 @@ const FriendInvite = () => {
             token: token,
             recipient_user_id: user.id,
           }),
+          signal: controller.signal,
         });
-      } catch (error) {
-        console.error('Error processing invite:', error);
-      }
 
-      // Always navigate to home after processing (or if error)
-      navigate('/', { replace: true });
+        clearTimeout(timeoutId);
+
+        // Only proceed if component is still mounted
+        if (mounted) {
+          // Always navigate home, regardless of response
+          navigate('/');
+        }
+      } catch (error) {
+        // If component is still mounted, navigate home
+        if (mounted) {
+          navigate('/');
+        }
+      }
     };
 
-    // Set a timeout to ensure we don't get stuck
-    const timeoutId = setTimeout(() => {
-      navigate('/', { replace: true });
-    }, 5000); // 5 second maximum processing time
-
-    // Process the invite
     processInvite();
 
-    // Clean up timeout if we navigate away
-    return () => clearTimeout(timeoutId);
+    // Cleanup function
+    return () => {
+      mounted = false;
+    };
   }, [token, user, navigate]);
 
-  // Return null - no need to show anything during the brief processing time
+  // Return null - no loading state needed
   return null;
 };
 
