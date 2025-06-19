@@ -17,7 +17,11 @@ const FriendInvite = () => {
 
     // If user is not logged in, save token and redirect to auth
     if (!user) {
-      localStorage.setItem('pendingFriendInvite', token);
+      // Store both token and timestamp
+      localStorage.setItem('pendingFriendInvite', JSON.stringify({
+        token,
+        timestamp: Date.now().toString()
+      }));
       navigate('/auth');
       return;
     }
@@ -42,15 +46,24 @@ const FriendInvite = () => {
       } catch (error) {
         console.error('Error processing invite:', error);
       }
-      
-      // Always redirect to home, regardless of success/failure
-      navigate('/');
+
+      // Always navigate to home after processing (or if error)
+      navigate('/', { replace: true });
     };
 
+    // Set a timeout to ensure we don't get stuck
+    const timeoutId = setTimeout(() => {
+      navigate('/', { replace: true });
+    }, 5000); // 5 second maximum processing time
+
+    // Process the invite
     processInvite();
+
+    // Clean up timeout if we navigate away
+    return () => clearTimeout(timeoutId);
   }, [token, user, navigate]);
 
-  // No loading state needed - just show nothing while processing
+  // Return null - no need to show anything during the brief processing time
   return null;
 };
 
