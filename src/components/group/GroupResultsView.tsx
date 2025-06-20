@@ -756,33 +756,22 @@ const GroupResultsView: React.FC<GroupResultsViewProps> = ({
                           <p className="text-sm text-gray-600 mb-4">
                             Share this link with your friend to invite them to Ditto:
                           </p>
-                          <div className="bg-gray-50 p-3 rounded-md border">
-                            <p className="text-xs text-gray-500 break-all">{inviteLink}</p>
+                          <div className="flex items-center space-x-2">
+                            <Input value={inviteLink} readOnly />
+                            <Button
+                              size="icon"
+                              onClick={() => {
+                                const inviteText = `Curious how alike we are? Friend me on Ditto! ${inviteLink}`;
+                                navigator.clipboard.writeText(inviteText);
+                                toast({
+                                  title: "Invite link copied!",
+                                  description: "The invite has been copied to your clipboard.",
+                                });
+                              }}
+                            >
+                              <Copy className="h-4 w-4" />
+                            </Button>
                           </div>
-                        </div>
-                        <div className="flex gap-2">
-                          <Button
-                            onClick={() => {
-                              navigator.clipboard.writeText(inviteLink);
-                              toast({
-                                title: "Link copied!",
-                                description: "The invite link has been copied to your clipboard.",
-                              });
-                            }}
-                            className="flex-1 bg-alike-teal hover:bg-alike-teal/90 text-white"
-                          >
-                            Copy Link
-                          </Button>
-                          <Button
-                            onClick={() => {
-                              setShowInviteLink(false);
-                              setInviteLink('');
-                              setInviteSuccess(false);
-                            }}
-                            variant="outline"
-                          >
-                            New Invite
-                          </Button>
                         </div>
                         <div className="text-center">
                           <Button
