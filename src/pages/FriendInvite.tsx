@@ -20,12 +20,23 @@ const FriendInvite = () => {
   const inviteProcessedRef = useRef(false);
 
   useEffect(() => {
+    console.log('🔍 FriendInvite useEffect triggered');
+    console.log('🔍 Token:', token);
+    console.log('🔍 User:', user ? { id: user.id, email: user.email } : 'null');
+    console.log('🔍 inviteProcessedRef.current:', inviteProcessedRef.current);
+
     // Prevent multiple processing attempts
-    if (inviteProcessedRef.current) return;
+    if (inviteProcessedRef.current) {
+      console.log('🔍 Invite already processed, returning early');
+      return;
+    }
     inviteProcessedRef.current = true;
 
     const handleInvite = async () => {
+      console.log('🔍 handleInvite function started');
+      
       if (!token) {
+        console.log('🔍 No token provided, setting error');
         setStatus('error');
         setErrorMessage('Invalid invite link');
         setIsLoading(false);
@@ -35,15 +46,32 @@ const FriendInvite = () => {
       try {
         // If user is not logged in, redirect to auth
         if (!user) {
+          console.log('🔍 User not logged in, storing token and redirecting to auth');
           // Store the invite token in localStorage to process after login
           localStorage.setItem('pendingFriendInvite', token);
           navigate('/auth');
           return;
         }
 
+        console.log('🔍 User is logged in, processing invite');
+        console.log('🔍 User ID:', user.id);
+        console.log('🔍 User email:', user.email);
+
         // User is logged in, process the invite
         const { data: { session } } = await supabase.auth.getSession();
         const accessToken = session?.access_token;
+        
+        console.log('🔍 Session retrieved:', !!session);
+        console.log('🔍 Access token exists:', !!accessToken);
+        console.log('🔍 Access token length:', accessToken?.length || 0);
+
+        const requestBody = {
+          token: token,
+          recipient_user_id: user.id,
+        };
+        
+        console.log('🔍 Request body:', requestBody);
+        console.log('🔍 Making fetch request to accept-friend-invite...');
 
         const response = await fetch('https://clvtxmkpsmacvhvyhwob.supabase.co/functions/v1/accept-friend-invite', {
           method: 'POST',
@@ -51,33 +79,45 @@ const FriendInvite = () => {
             'Content-Type': 'application/json',
             ...(accessToken ? { 'Authorization': `Bearer ${accessToken}` } : {}),
           },
-          body: JSON.stringify({
-            token: token,
-            recipient_user_id: user.id,
-          }),
+          body: JSON.stringify(requestBody),
         });
+
+        console.log('🔍 Response received');
+        console.log('🔍 Response status:', response.status);
+        console.log('🔍 Response ok:', response.ok);
+        console.log('🔍 Response headers:', Object.fromEntries(response.headers.entries()));
 
         // Add timeout protection and better error handling
         if (!response.ok) {
+          console.log('🔍 Response not ok, handling error');
           const errorText = await response.text();
+          console.log('🔍 Error response text:', errorText);
+          
           let errorData;
           try {
             errorData = JSON.parse(errorText);
+            console.log('🔍 Parsed error data:', errorData);
           } catch {
             errorData = { error: 'Invalid response from server' };
+            console.log('🔍 Failed to parse error response as JSON');
           }
 
           // Special handling for self-invite case
           if (errorData.error === 'Cannot invite yourself') {
+            console.log('🔍 Self-invite detected, setting status to self');
             setStatus('self');
           } else if (errorData.error && errorData.error.includes('expired')) {
+            console.log('🔍 Expired invite detected');
             setStatus('expired');
           } else {
+            console.log('🔍 Generic error, setting error status');
             setStatus('error');
             setErrorMessage(errorData.error || 'Failed to accept friend request');
           }
         } else {
+          console.log('🔍 Response ok, parsing success data');
           const data = await response.json();
+          console.log('🔍 Success data:', data);
           setStatus('success');
           toast({
             title: "Friend request accepted!",
@@ -86,14 +126,19 @@ const FriendInvite = () => {
           
           // Redirect to dashboard after a short delay
           setTimeout(() => {
+            console.log('🔍 Redirecting to dashboard');
             navigate('/');
           }, 2000);
         }
       } catch (error: any) {
-        console.error('Friend invite error:', error);
+        console.error('🔍 Friend invite error:', error);
+        console.error('🔍 Error name:', error.name);
+        console.error('🔍 Error message:', error.message);
+        console.error('🔍 Error stack:', error.stack);
         setStatus('error');
         setErrorMessage(error.message || 'An error occurred');
       } finally {
+        console.log('🔍 Finally block executed, setting isLoading to false');
         // Always ensure loading state is cleared
         setIsLoading(false);
       }
@@ -101,6 +146,7 @@ const FriendInvite = () => {
 
     // Add timeout protection for the entire operation
     const timeoutId = setTimeout(() => {
+      console.log('🔍 Timeout triggered after 30 seconds');
       if (isLoading) {
         setStatus('error');
         setErrorMessage('Request timed out. Please try again.');
@@ -110,7 +156,10 @@ const FriendInvite = () => {
 
     handleInvite();
 
-    return () => clearTimeout(timeoutId);
+    return () => {
+      console.log('🔍 Cleanup function called');
+      clearTimeout(timeoutId);
+    };
   }, [token, user, navigate, toast]); // Removed isLoading from dependencies
 
   const handleSignup = () => {
