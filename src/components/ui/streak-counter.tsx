@@ -7,8 +7,8 @@ interface StreakCounterProps {
 
 export const StreakCounter: React.FC<StreakCounterProps> = ({ count }) => {
   return (
-    <div className="flex items-center space-x-1">
-      <Flame className="w-6 h-6 text-alike-teal" />
+    <div className="flex items-center">
+      <Flame className="w-6 h-6 text-alike-teal mr-0.5" />
       <span className="text-lg font-semibold text-alike-teal">
         {count}
       </span>
