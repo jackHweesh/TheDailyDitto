@@ -3,12 +3,14 @@ import ProfileView from '@/components/profile/ProfileView';
 import { useNavigate } from 'react-router-dom';
 import Header from '@/components/Header';
 import { useAuth } from '@/context/AuthContext';
+import { useStreak } from '@/hooks/useStreak';
 import { supabase } from '@/integrations/supabase/client';
 
 const Profile: React.FC = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const [hasVoted, setHasVoted] = useState(false);
+  const streak = useStreak();
 
   useEffect(() => {
     const checkUserVote = async () => {
@@ -43,7 +45,7 @@ const Profile: React.FC = () => {
 
   return (
     <div>
-      <Header hasVoted={hasVoted} onLogoClick={() => navigate('/')} streak={0} />
+      <Header hasVoted={hasVoted} onLogoClick={() => navigate('/')} streak={streak} />
       <ProfileView onBack={() => navigate(-1)} />
     </div>
   );

@@ -15,6 +15,7 @@ import { getBrowserFingerprint } from '@/utils/fingerprint';
 import { Capacitor } from '@capacitor/core';
 import Header from '@/components/Header';
 import { subDays, isSameDay } from 'date-fns';
+import { useStreak } from '@/hooks/useStreak';
 
 // Predefined colors for results visualization
 const RESULT_COLORS = [
@@ -41,13 +42,13 @@ const Dashboard: React.FC = () => {
   const [resultsLoading, setResultsLoading] = useState(false);
   const [isFirstLoad, setIsFirstLoad] = useState(true);
   const [isVoteStatusLoading, setIsVoteStatusLoading] = useState(true);
-  const [streak, setStreak] = useState(0);
   
   const { toast } = useToast();
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const { groupId } = useParams();
+  const streak = useStreak();
   
   const latestQuestionId = useRef<string | null>(null);
   const isNative = Capacitor.isNativePlatform();
@@ -74,49 +75,6 @@ const Dashboard: React.FC = () => {
       .is('user_id', null)
       .limit(1);
     return Array.isArray(anonVoteData) && anonVoteData.length > 0;
-  };
-
-  // Helper function to calculate streak
-  const calculateStreak = async (userId: string | null) => {
-    if (!userId) {
-      setStreak(0);
-      return;
-    }
-    try {
-      const { data: votes, error } = await supabase
-        .from('votes')
-        .select('created_at')
-        .eq('user_id', userId)
-        .order('created_at', { ascending: false });
-      if (error) throw error;
-      if (!votes || votes.length === 0) {
-        setStreak(0);
-        return;
-      }
-      const dates = votes.map((vote: any) => new Date(vote.created_at));
-      dates.sort((a: Date, b: Date) => b.getTime() - a.getTime());
-      const today = new Date();
-      const mostRecentVote = dates[0];
-      if (!isSameDay(mostRecentVote, today)) {
-        setStreak(0);
-        return;
-      }
-      let currentStreak = 1;
-      let currentDate = today;
-      for (let i = 1; i < dates.length; i++) {
-        const previousDate = subDays(currentDate, 1);
-        const voteDate = dates[i];
-        if (isSameDay(voteDate, previousDate)) {
-          currentStreak++;
-          currentDate = previousDate;
-        } else {
-          break;
-        }
-      }
-      setStreak(currentStreak);
-    } catch (error) {
-      setStreak(0);
-    }
   };
 
   useEffect(() => {
@@ -232,7 +190,6 @@ const Dashboard: React.FC = () => {
       setResultsLoading(true);
       await fetchResults(questionData.id);
       setCurrentView(DashboardView.RESULTS);
-      await calculateStreak(user?.id ?? null);
     }
   };
   
@@ -285,22 +242,6 @@ const Dashboard: React.FC = () => {
       }
     }
   }, [currentView, hasVoted, isVoteStatusLoading]);
-
-  // Update streak on login/logout and page load
-  useEffect(() => {
-    calculateStreak(user?.id ?? null);
-  }, [user]);
-
-  // Update streak when tab becomes visible
-  useEffect(() => {
-    const handleVisibility = () => {
-      if (document.visibilityState === 'visible') {
-        calculateStreak(user?.id ?? null);
-      }
-    };
-    document.addEventListener('visibilitychange', handleVisibility);
-    return () => document.removeEventListener('visibilitychange', handleVisibility);
-  }, [user]);
 
   return (
     <div className="min-h-screen flex flex-col">

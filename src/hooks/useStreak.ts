@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/context/AuthContext';
-import { format, subDays, isSameDay } from 'date-fns';
+import { format, subDays, isSameDay, addDays } from 'date-fns';
 
 export const useStreak = () => {
   const [streak, setStreak] = useState(0);
@@ -33,32 +33,55 @@ export const useStreak = () => {
         const dates = votes.map(vote => new Date(vote.created_at));
         dates.sort((a, b) => b.getTime() - a.getTime());
 
-        // Check if the most recent vote was today
         const today = new Date();
         const mostRecentVote = dates[0];
         
-        if (!isSameDay(mostRecentVote, today)) {
-          setStreak(0);
+        // If the most recent vote was today, calculate streak including today
+        if (isSameDay(mostRecentVote, today)) {
+          let currentStreak = 1;
+          let currentDate = today;
+
+          for (let i = 1; i < dates.length; i++) {
+            const previousDate = subDays(currentDate, 1);
+            const voteDate = dates[i];
+
+            if (isSameDay(voteDate, previousDate)) {
+              currentStreak++;
+              currentDate = previousDate;
+            } else {
+              break;
+            }
+          }
+
+          setStreak(currentStreak);
           return;
         }
 
-        // Calculate streak
-        let currentStreak = 1;
-        let currentDate = today;
+        // If the most recent vote was yesterday, check if streak is still valid
+        const yesterday = subDays(today, 1);
+        if (isSameDay(mostRecentVote, yesterday)) {
+          // User hasn't voted today but voted yesterday - streak is still valid
+          let currentStreak = 1;
+          let currentDate = yesterday;
 
-        for (let i = 1; i < dates.length; i++) {
-          const previousDate = subDays(currentDate, 1);
-          const voteDate = dates[i];
+          for (let i = 1; i < dates.length; i++) {
+            const previousDate = subDays(currentDate, 1);
+            const voteDate = dates[i];
 
-          if (isSameDay(voteDate, previousDate)) {
-            currentStreak++;
-            currentDate = previousDate;
-          } else {
-            break;
+            if (isSameDay(voteDate, previousDate)) {
+              currentStreak++;
+              currentDate = previousDate;
+            } else {
+              break;
+            }
           }
+
+          setStreak(currentStreak);
+          return;
         }
 
-        setStreak(currentStreak);
+        // If the most recent vote was more than 1 day ago, streak is broken
+        setStreak(0);
       } catch (error) {
         console.error('Error calculating streak:', error);
         setStreak(0);

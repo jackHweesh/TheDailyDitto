@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { useNavigate } from 'react-router-dom';
 import Header from '@/components/Header';
 import { useAuth } from '@/context/AuthContext';
+import { useStreak } from '@/hooks/useStreak';
 import { supabase } from '@/integrations/supabase/client';
 import { ArrowLeft } from 'lucide-react';
 
@@ -11,6 +12,7 @@ const Contact: React.FC = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const [hasVoted, setHasVoted] = useState(false);
+  const streak = useStreak();
 
   useEffect(() => {
     const checkUserVote = async () => {
@@ -43,7 +45,7 @@ const Contact: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <Header hasVoted={hasVoted} onLogoClick={() => navigate('/')} fixed={false} streak={0} />
+      <Header hasVoted={hasVoted} onLogoClick={() => navigate('/')} fixed={false} streak={streak} />
       <div className="flex flex-col items-center justify-center min-h-screen bg-gray-50 relative pt-0">
         <Card className="w-full max-w-xl p-8 mt-8 text-center relative">
           <div className="absolute left-4 top-4">
