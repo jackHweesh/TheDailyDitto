@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -15,8 +15,15 @@ const FriendInvite = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [status, setStatus] = useState<'loading' | 'success' | 'error' | 'expired' | 'self'>('loading');
   const [errorMessage, setErrorMessage] = useState('');
+  
+  // Add ref to track if invite has been processed to prevent infinite loops
+  const inviteProcessedRef = useRef(false);
 
   useEffect(() => {
+    // Prevent multiple processing attempts
+    if (inviteProcessedRef.current) return;
+    inviteProcessedRef.current = true;
+
     const handleInvite = async () => {
       if (!token) {
         setStatus('error');
@@ -104,7 +111,7 @@ const FriendInvite = () => {
     handleInvite();
 
     return () => clearTimeout(timeoutId);
-  }, [token, user, navigate, toast, isLoading]);
+  }, [token, user, navigate, toast]); // Removed isLoading from dependencies
 
   const handleSignup = () => {
     navigate('/auth');
