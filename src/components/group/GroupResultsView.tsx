@@ -735,11 +735,12 @@ const GroupResultsView: React.FC<GroupResultsViewProps> = ({
               />
             </PopoverContent>
           </Popover>
-          <div className="flex items-center gap-1 bg-alike-teal/10 rounded-full px-3 py-1.5">
+          <div className="flex items-center gap-1">
             {groupName === 'Friends' ? (
               <>
                 <Button
                   variant="outline"
+                  size="sm"
                   className="text-alike-teal border-alike-teal"
                   onClick={() => setShowInviteDialog(true)}
                 >
