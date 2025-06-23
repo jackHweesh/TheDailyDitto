@@ -39,17 +39,6 @@ const Index = () => {
   const { toast } = useToast();
   const { user } = useAuth();
 
-  // Remove session-based redirect for /reset-password
-  if (window.location.pathname === '/reset-password') {
-    return (
-      <div className="min-h-screen bg-alike-lightgray flex flex-col">
-        <div className="flex-1 flex items-center justify-center p-4">
-          <ResetPasswordForm />
-        </div>
-      </div>
-    );
-  }
-
   // If user is authenticated, redirect to dashboard (for all other routes)
   if (user) {
     return <Navigate to="/dashboard" replace />;

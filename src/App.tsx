@@ -44,7 +44,13 @@ const App = () => {
           <div className={`app-container ${isNative ? 'native-app' : ''}`}>
             <BrowserRouter>
               <Routes>
-                <Route path="/reset-password" element={<ResetPasswordForm />} />
+                <Route path="/reset-password" element={
+                  <div className="min-h-screen bg-alike-lightgray flex flex-col">
+                    <div className="flex-1 flex items-center justify-center p-4">
+                      <ResetPasswordForm />
+                    </div>
+                  </div>
+                } />
                 <Route path="/auth" element={<Auth />} />
                 <Route path="/" element={<Dashboard />} />
                 <Route path="/groups/:groupId" element={<Dashboard />} />
