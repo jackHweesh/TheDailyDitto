@@ -65,8 +65,7 @@ async function ensureFriendsGroups() {
             .insert({
               name: 'Friends',
               owner_id: user.id,
-              created_by: user.id,
-              invite_code: nanoid(8) // Still need an invite code for database consistency
+              created_by: user.id
             })
             .select()
             .single();

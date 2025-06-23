@@ -40,7 +40,6 @@ const GroupView: React.FC<GroupViewProps> = ({ questionId, onBack, options, ques
   const navigate = useNavigate();
   const { groupId } = useParams();
   const location = useLocation();
-  const [inviteCode, setInviteCode] = useState('');
   const [newGroupName, setNewGroupName] = useState('');
   const [groups, setGroups] = useState<Group[]>([]);
   const [activeGroup, setActiveGroup] = useState<Group | null>(null);
@@ -160,8 +159,7 @@ const GroupView: React.FC<GroupViewProps> = ({ questionId, onBack, options, ques
           .insert({
             name: 'Friends',
             owner_id: user.id,
-            created_by: user.id,
-            invite_code: nanoid(8)
+            created_by: user.id
           })
           .select()
           .single();
@@ -209,104 +207,6 @@ const GroupView: React.FC<GroupViewProps> = ({ questionId, onBack, options, ques
     };
   }, [user, toast, groupId]);
 
-  const handleJoinGroup = async () => {
-    if (!user) {
-      toast({
-        title: "Authentication required",
-        description: "Please log in to join groups",
-        variant: "destructive"
-      });
-      return;
-    }
-    
-    if (!inviteCode.trim()) {
-      toast({
-        title: "Invite code required",
-        description: "Please enter a valid invite code",
-        variant: "destructive"
-      });
-      return;
-    }
-    
-    try {
-      // Find group with invite code
-      const { data: groupData, error: groupError } = await supabase
-        .from('groups')
-        .select('id, name, owner_id')
-        .eq('invite_code', inviteCode.trim())
-        .single();
-      
-      if (groupError) {
-        toast({
-          title: "Invalid invite code",
-          description: "No group found with this invite code",
-          variant: "destructive"
-        });
-        return;
-      }
-      
-      // Check if already a member or pending
-      const { data: existingMember, error: memberError } = await supabase
-        .from('group_members')
-        .select('id, status')
-        .eq('group_id', groupData.id)
-        .eq('user_id', user.id)
-        .single();
-      
-      if (existingMember) {
-        if (existingMember.status === 'pending') {
-          toast({
-            title: "Request pending",
-            description: "Your request to join this group is pending approval from the owner.",
-            variant: "default"
-          });
-        } else {
-          toast({
-            title: "Already a member",
-            description: "You are already a member of this group",
-            variant: "default"
-          });
-        }
-        setInviteCode('');
-        return;
-      }
-      
-      // Determine status
-      const status = groupData.owner_id === user.id ? 'owner' : 'pending';
-      
-      // Join the group with appropriate status
-      const { error: joinError } = await supabase
-        .from('group_members')
-        .insert({
-          group_id: groupData.id,
-          user_id: user.id,
-          status
-        });
-      
-      if (joinError) throw joinError;
-      
-      if (status === 'pending') {
-        toast({
-          title: "Request sent",
-          description: "Your request to join this group is pending approval from the owner.",
-        });
-      } else {
-        toast({
-          title: "Group joined",
-          description: `You have successfully joined "${groupData.name}"`,
-        });
-      }
-      
-      setInviteCode('');
-    } catch (error: any) {
-      toast({
-        title: "Error joining group",
-        description: error.message || "Could not join the group",
-        variant: "destructive"
-      });
-    }
-  };
-
   const handleCreateGroup = async () => {
     if (!user) {
       toast({
@@ -327,15 +227,11 @@ const GroupView: React.FC<GroupViewProps> = ({ questionId, onBack, options, ques
     }
     
     try {
-      // Generate a unique invite code
-      const inviteCode = nanoid(8);
-      
-      // Create the group
+      // Create the group (no invite code needed for new system)
       const { data: groupData, error: groupError } = await supabase
         .from('groups')
         .insert({
           name: newGroupName.trim(),
-          invite_code: inviteCode,
           created_by: user.id,
           owner_id: user.id
         })
@@ -357,7 +253,7 @@ const GroupView: React.FC<GroupViewProps> = ({ questionId, onBack, options, ques
       
       toast({
         title: "Group created",
-        description: `"${newGroupName}" created with invite code: ${inviteCode}. Share this code with friends!`,
+        description: `"${newGroupName}" created successfully! Use the "Send Group Link" button to invite friends.`,
       });
       
       setNewGroupName('');
@@ -529,26 +425,10 @@ const GroupView: React.FC<GroupViewProps> = ({ questionId, onBack, options, ques
           <h2 className="text-xl font-semibold text-alike-navy">My Groups</h2>
         </div>
         <p className="text-sm text-muted-foreground">
-          Join or create groups to view individuals' answers, discover who you're most alike, and chat about results
+          Create groups to view individuals' answers, discover who you're most alike, and chat about results
         </p>
       </CardHeader>
       <CardContent className="space-y-4">
-        <div className="flex space-x-2">
-          <Input
-            type="text"
-            placeholder="Enter invite code"
-            value={inviteCode}
-            onChange={(e) => setInviteCode(e.target.value)}
-            className="rounded-md flex-1"
-          />
-          <Button 
-            onClick={handleJoinGroup}
-            className="bg-alike-teal hover:bg-alike-teal/90 text-white rounded-md"
-          >
-            Join
-          </Button>
-        </div>
-        
         <div className="flex justify-end">
           <Dialog>
             <DialogTrigger asChild>

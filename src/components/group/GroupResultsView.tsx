@@ -111,7 +111,6 @@ const GroupResultsView: React.FC<GroupResultsViewProps> = ({
   const [isLoadingChat, setIsLoadingChat] = useState(true);
   const [isSending, setIsSending] = useState(false);
   const [userProfiles, setUserProfiles] = useState<Record<string, string>>({});
-  const [inviteCode, setInviteCode] = useState<string>('');
   const [retryCount, setRetryCount] = useState(0);
   const [subscriptionError, setSubscriptionError] = useState<string | null>(null);
   const [messageError, setMessageError] = useState<string | null>(null);
@@ -139,6 +138,14 @@ const GroupResultsView: React.FC<GroupResultsViewProps> = ({
   const [inviteSuccess, setInviteSuccess] = useState(false);
   const [inviteLink, setInviteLink] = useState<string>('');
   const [showInviteLink, setShowInviteLink] = useState(false);
+
+  // Add state for group invite dialog
+  const [showGroupInviteDialog, setShowGroupInviteDialog] = useState(false);
+  const [groupInviteLoading, setGroupInviteLoading] = useState(false);
+  const [groupInviteError, setGroupInviteError] = useState<string | null>(null);
+  const [groupInviteSuccess, setGroupInviteSuccess] = useState(false);
+  const [groupInviteLink, setGroupInviteLink] = useState<string>('');
+  const [showGroupInviteLink, setShowGroupInviteLink] = useState(false);
 
   const fetchPendingRequests = useCallback(async () => {
     if (!user) return;
@@ -184,21 +191,18 @@ const GroupResultsView: React.FC<GroupResultsViewProps> = ({
     // eslint-disable-next-line
   }, [fetchPendingRequests]);
 
-  // Fetch group results and invite code
+  // Fetch group results
   useEffect(() => {
-    const fetchGroupResultsAndInviteCode = async () => {
+    const fetchGroupResults = async () => {
       setIsLoading(true);
       try {
-        // Always fetch invite code for all users
+        // Get group data
         const { data: groupData, error: groupError }: SupabaseResponse<GroupData> = await supabase
           .from('groups')
-          .select('invite_code, name, owner_id')
+          .select('name, owner_id')
           .eq('id', groupId)
           .single();
         if (groupError) throw groupError;
-        if (groupData) {
-          setInviteCode(groupData.invite_code);
-        }
         // Check if this is the current user's Friends group
         let memberIds: string[] = [];
         if (groupData && groupData.name === 'Friends' && user && groupData.owner_id === user.id) {
@@ -277,7 +281,7 @@ const GroupResultsView: React.FC<GroupResultsViewProps> = ({
         setIsLoading(false);
       }
     };
-    fetchGroupResultsAndInviteCode();
+    fetchGroupResults();
   }, [groupId, questionId, options, toast, user]);
 
   // Fetch chat messages
@@ -431,44 +435,6 @@ const GroupResultsView: React.FC<GroupResultsViewProps> = ({
   
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  };
-
-  const copyInviteCode = () => {
-    if (inviteCode) {
-      console.log('Copy button clicked. Invite code:', inviteCode);
-      if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
-        navigator.clipboard.writeText(inviteCode).then(() => {
-          toast({
-            title: "Invite code copied",
-            description: "You can now share it with friends",
-          });
-        }).catch(() => {
-          // Fallback for clipboard API issues
-          const tempInput = document.createElement('input');
-          tempInput.value = inviteCode;
-          document.body.appendChild(tempInput);
-          tempInput.select();
-          document.execCommand('copy');
-          document.body.removeChild(tempInput);
-          toast({
-            title: "Invite code copied",
-            description: "You can now share it with friends",
-          });
-        });
-      } else {
-        // Fallback for environments without navigator.clipboard
-        const tempInput = document.createElement('input');
-        tempInput.value = inviteCode;
-        document.body.appendChild(tempInput);
-        tempInput.select();
-        document.execCommand('copy');
-        document.body.removeChild(tempInput);
-        toast({
-          title: "Invite code copied",
-          description: "You can now share it with friends",
-        });
-      }
-    }
   };
 
   const formatMessageDate = (dateString: string) => {
@@ -866,15 +832,131 @@ const GroupResultsView: React.FC<GroupResultsViewProps> = ({
               </>
             ) : (
               <>
-            <span className="text-xs font-medium text-alike-teal">Invite: {inviteCode}</span>
-            <Button 
-              variant="ghost" 
-              size="icon" 
-              className="h-5 w-5 rounded-full" 
-              onClick={copyInviteCode}
-            >
-              <Copy className="h-3 w-3 text-alike-teal" />
-            </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="text-alike-teal border-alike-teal"
+                  onClick={() => setShowGroupInviteDialog(true)}
+                >
+                  Send Group Link
+                </Button>
+                <Dialog open={showGroupInviteDialog} onOpenChange={setShowGroupInviteDialog}>
+                  <DialogContent>
+                    <DialogHeader>
+                      <DialogTitle>Send Group Invite</DialogTitle>
+                    </DialogHeader>
+                    {showGroupInviteLink ? (
+                      <div className="space-y-4">
+                        <div className="text-center">
+                          <p className="text-sm text-gray-600 mb-4">
+                            Share this link with friends to invite them to join "{groupName}":
+                          </p>
+                          <div className="flex items-center space-x-2">
+                            <Input value={groupInviteLink} readOnly />
+                            <Button
+                              size="icon"
+                              onClick={() => {
+                                const inviteText = `Join my group "${groupName}" on Ditto! ${groupInviteLink}`;
+                                navigator.clipboard.writeText(inviteText);
+                                toast({
+                                  title: "Invite link copied!",
+                                  description: "The invite has been copied to your clipboard.",
+                                });
+                              }}
+                            >
+                              <Copy className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </div>
+                        <div className="text-center">
+                          <Button
+                            onClick={() => setShowGroupInviteDialog(false)}
+                            variant="ghost"
+                            className="text-gray-500"
+                          >
+                            Close
+                          </Button>
+                        </div>
+                      </div>
+                    ) : groupInviteSuccess ? (
+                      <div className="py-4 text-green-600">Invite link generated successfully!</div>
+                    ) : (
+                      <div className="space-y-4">
+                        <p className="text-sm text-gray-600">
+                          Generate a unique invite link to share with friends. The link will be valid for 7 days.
+                        </p>
+                        {groupInviteError && <div className="text-red-600 text-sm">{groupInviteError}</div>}
+                        <DialogFooter>
+                          <Button 
+                            type="button" 
+                            variant="outline" 
+                            onClick={() => setShowGroupInviteDialog(false)} 
+                            disabled={groupInviteLoading}
+                          >
+                            Cancel
+                          </Button>
+                          <Button 
+                            onClick={async () => {
+                              if (groupInviteLoading) return;
+                              
+                              setGroupInviteLoading(true);
+                              setGroupInviteError(null);
+                              setGroupInviteSuccess(false);
+                              
+                              try {
+                                const { data: { session } } = await supabase.auth.getSession();
+                                const accessToken = session?.access_token;
+                                
+                                if (!accessToken) {
+                                  throw new Error('Authentication required');
+                                }
+                                
+                                const res = await fetch('https://clvtxmkpsmacvhvyhwob.supabase.co/functions/v1/generate-group-invite', {
+                                  method: 'POST',
+                                  headers: {
+                                    'Content-Type': 'application/json',
+                                    'Authorization': `Bearer ${accessToken}`,
+                                  },
+                                  body: JSON.stringify({ group_id: groupId }),
+                                });
+                                
+                                if (!res.ok) {
+                                  const errorText = await res.text();
+                                  let errorData;
+                                  try {
+                                    errorData = JSON.parse(errorText);
+                                  } catch {
+                                    errorData = { error: 'Invalid response from server' };
+                                  }
+                                  throw new Error(errorData.error || 'Failed to generate invite');
+                                }
+                                
+                                const data = await res.json();
+                                
+                                if (!data.invite_link) {
+                                  throw new Error('Invalid response: missing invite link');
+                                }
+                                
+                                setGroupInviteLink(data.invite_link);
+                                setGroupInviteSuccess(true);
+                                setShowGroupInviteLink(true);
+                              } catch (err: any) {
+                                console.error('Group invite generation error:', err);
+                                setGroupInviteError(err.message || 'Failed to generate invite');
+                              } finally {
+                                setGroupInviteLoading(false);
+                              }
+                            }}
+                            className="bg-alike-teal text-white" 
+                            disabled={groupInviteLoading}
+                          >
+                            {groupInviteLoading ? 'Generating...' : 'Generate Invite Link'}
+                          </Button>
+                        </DialogFooter>
+                      </div>
+                    )}
+                  </DialogContent>
+                </Dialog>
               </>
             )}
           </div>

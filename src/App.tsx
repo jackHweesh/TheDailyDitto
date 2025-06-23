@@ -18,6 +18,7 @@ import HowToPlay from "./pages/HowToPlay";
 import Profile from "./pages/Profile";
 import SignupPrompt from "./components/auth/SignupPrompt";
 import FriendInvite from "./pages/FriendInvite";
+import GroupInvite from "./pages/GroupInvite";
 import { useEffect } from 'react';
 import { StatusBar, Style } from '@capacitor/status-bar';
 
@@ -56,6 +57,7 @@ const App = () => {
                 <Route path="/profile" element={<Profile />} />
                 <Route path="/signup-prompt" element={<SignupPrompt />} />
                 <Route path="/invite/friend/:token" element={<FriendInvite />} />
+                <Route path="/invite/group/:token" element={<GroupInvite />} />
                 <Route path="*" element={<NotFound />} />
               </Routes>
             </BrowserRouter>

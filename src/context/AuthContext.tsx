@@ -54,8 +54,9 @@ export const AuthProvider: FC<{ children: ReactNode }> = ({ children }) => {
         setIsLoading(false);
 
         if (event === 'SIGNED_IN' && currentSession?.user) {
-          const pendingInvite = localStorage.getItem('pendingFriendInvite');
-          if (pendingInvite) {
+          // Handle pending friend invite
+          const pendingFriendInvite = localStorage.getItem('pendingFriendInvite');
+          if (pendingFriendInvite) {
             localStorage.removeItem('pendingFriendInvite');
             try {
               const accessToken = currentSession.access_token;
@@ -66,7 +67,7 @@ export const AuthProvider: FC<{ children: ReactNode }> = ({ children }) => {
                   'Authorization': `Bearer ${accessToken}`,
                 },
                 body: JSON.stringify({
-                  token: pendingInvite,
+                  token: pendingFriendInvite,
                   recipient_user_id: currentSession.user.id,
                 }),
               });
@@ -86,6 +87,46 @@ export const AuthProvider: FC<{ children: ReactNode }> = ({ children }) => {
             } catch (error) {
               toast({
                 title: "Friend invite error",
+                description: "An error occurred while processing the invite.",
+                variant: "destructive",
+              });
+            }
+          }
+
+          // Handle pending group invite
+          const pendingGroupInvite = localStorage.getItem('pendingGroupInvite');
+          if (pendingGroupInvite) {
+            localStorage.removeItem('pendingGroupInvite');
+            try {
+              const accessToken = currentSession.access_token;
+              const response = await fetch('https://clvtxmkpsmacvhvyhwob.functions.supabase.co/accept-group-invite', {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'Authorization': `Bearer ${accessToken}`,
+                },
+                body: JSON.stringify({
+                  token: pendingGroupInvite,
+                  recipient_user_id: currentSession.user.id,
+                }),
+              });
+              if (!response.ok) {
+                const errorData = await response.json();
+                toast({
+                  title: "Group invite error",
+                  description: errorData.error || "Failed to accept group invite.",
+                  variant: "destructive",
+                });
+              } else {
+                const data = await response.json();
+                toast({
+                  title: "Group invite accepted!",
+                  description: `You have successfully joined "${data.group_name}"`,
+                });
+              }
+            } catch (error) {
+              toast({
+                title: "Group invite error",
                 description: "An error occurred while processing the invite.",
                 variant: "destructive",
               });

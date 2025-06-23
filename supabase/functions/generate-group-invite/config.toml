@@ -1,0 +1,2 @@
+[functions.generate-group-invite]
+verify_jwt = false 

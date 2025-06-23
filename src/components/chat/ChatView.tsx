@@ -28,35 +28,11 @@ const ChatView: React.FC<ChatViewProps> = ({ groupId, groupName, onBack }) => {
   const [isLoading, setIsLoading] = useState(true);
   const [isSending, setIsSending] = useState(false);
   const [userProfiles, setUserProfiles] = useState<Record<string, string>>({});
-  const [inviteCode, setInviteCode] = useState<string>('');
   const { toast } = useToast();
   const { user } = useAuth();
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    // Fetch group invite code
-    const fetchGroupInviteCode = async () => {
-      if (!groupId) return;
-      
-      try {
-        const { data, error } = await supabase
-          .from('groups')
-          .select('invite_code')
-          .eq('id', groupId)
-          .single();
-          
-        if (error) throw error;
-        
-        if (data) {
-          setInviteCode(data.invite_code);
-        }
-      } catch (error: any) {
-        console.error('Error fetching invite code:', error);
-      }
-    };
-    
-    fetchGroupInviteCode();
-    
     // Fetch chat messages
     const fetchMessages = async () => {
       setIsLoading(true);
@@ -183,16 +159,6 @@ const ChatView: React.FC<ChatViewProps> = ({ groupId, groupName, onBack }) => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
-  const copyInviteCode = () => {
-    if (inviteCode) {
-      navigator.clipboard.writeText(inviteCode);
-      toast({
-        title: "Invite code copied",
-        description: "You can now share it with friends",
-      });
-    }
-  };
-
   const formatMessageDate = (dateString: string) => {
     const date = new Date(dateString);
     return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
@@ -217,19 +183,6 @@ const ChatView: React.FC<ChatViewProps> = ({ groupId, groupName, onBack }) => {
               <ArrowLeft className="w-9 h-9 stroke-2" />
             </Button>
             <h2 className="text-xl font-semibold text-alike-navy">{groupName}</h2>
-          </div>
-          <div className="flex items-center gap-2">
-            <div className="flex items-center gap-1 bg-alike-teal/10 rounded-full px-3 py-1.5">
-              <span className="text-xs font-medium text-alike-teal">Invite: {inviteCode}</span>
-              <Button 
-                variant="ghost" 
-                size="icon" 
-                className="h-5 w-5 rounded-full" 
-                onClick={copyInviteCode}
-              >
-                <Copy className="h-3 w-3 text-alike-teal" />
-              </Button>
-            </div>
           </div>
         </div>
       </CardHeader>
