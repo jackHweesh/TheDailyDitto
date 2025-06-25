@@ -46,10 +46,9 @@ export const AuthProvider: FC<{ children: ReactNode }> = ({ children }) => {
       async (event, currentSession) => {
         if (event === 'PASSWORD_RECOVERY') {
           setIsPasswordRecovery(true);
-          // Immediately sign out to prevent auto-sign-in from password recovery links
-          await supabase.auth.signOut();
-          setSession(null);
-          setUser(null);
+          // Don't sign out immediately - preserve the recovery session
+          setSession(currentSession);
+          setUser(currentSession?.user ?? null);
         } else {
           setIsPasswordRecovery(false);
         }
@@ -212,6 +211,12 @@ export const AuthProvider: FC<{ children: ReactNode }> = ({ children }) => {
             });
             throw error;
         }
+        
+        // After successful password update, sign out and clear recovery state
+        await supabase.auth.signOut();
+        setIsPasswordRecovery(false);
+        setSession(null);
+        setUser(null);
     }
   };
 

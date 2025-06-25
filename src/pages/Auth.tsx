@@ -13,7 +13,7 @@ enum AuthView {
 
 const Auth: React.FC = () => {
   const [view, setView] = useState(AuthView.LOGIN);
-  const { user, isLoading } = useAuth();
+  const { user, isLoading, isPasswordRecovery } = useAuth();
   const location = useLocation();
   
   // Set initial view based on location state
@@ -25,8 +25,8 @@ const Auth: React.FC = () => {
     }
   }, [location.state]);
   
-  // If authenticated, redirect to home
-  if (user && !isLoading) {
+  // If authenticated and not in password recovery, redirect to home
+  if (user && !isLoading && !isPasswordRecovery) {
     return <Navigate to="/" replace />;
   }
   

@@ -37,10 +37,10 @@ enum AppView {
 const Index = () => {
   const [view, setView] = useState<AppView>(AppView.WELCOME);
   const { toast } = useToast();
-  const { user } = useAuth();
+  const { user, isPasswordRecovery } = useAuth();
 
-  // If user is authenticated, redirect to dashboard (for all other routes)
-  if (user) {
+  // If user is authenticated and not in password recovery, redirect to dashboard
+  if (user && !isPasswordRecovery) {
     return <Navigate to="/dashboard" replace />;
   }
 

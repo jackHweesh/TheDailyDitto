@@ -6,6 +6,7 @@ import { useToast } from '@/components/ui/use-toast';
 import Logo from '../Logo';
 import { supabase } from '@/integrations/supabase/client';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '@/context/AuthContext';
 
 const ResetPasswordForm: React.FC = () => {
   const [password, setPassword] = useState('');
@@ -15,6 +16,7 @@ const ResetPasswordForm: React.FC = () => {
   const [isCheckingSession, setIsCheckingSession] = useState(true);
   const { toast } = useToast();
   const navigate = useNavigate();
+  const { updatePassword } = useAuth();
 
   // Get recovery session from URL on mount
   useEffect(() => {
@@ -64,15 +66,8 @@ const ResetPasswordForm: React.FC = () => {
     setError('');
 
     try {
-      // Update the password using the current session
-      const { error } = await supabase.auth.updateUser({ 
-        password
-      });
-
-      if (error) throw error;
-
-      // Sign out the user after password reset
-      await supabase.auth.signOut();
+      // Update the password using the AuthContext method
+      await updatePassword(password);
       
       toast({
         title: 'Password reset successful',
