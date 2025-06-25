@@ -12,6 +12,7 @@ import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
 import { format, isSameDay } from 'date-fns';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { useUnreadCount } from '@/hooks/useUnreadCount';
 
 interface GroupResultsViewProps {
   groupId: string;
@@ -119,6 +120,7 @@ const GroupResultsView: React.FC<GroupResultsViewProps> = ({
   const { user } = useAuth();
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const MAX_RETRIES = 3;
+  const { markGroupAsVisited, setCurrentGroup } = useUnreadCount();
 
   const [showCalendar, setShowCalendar] = useState(false);
   const [allQuestions, setAllQuestions] = useState<DailyQuestion[]>([]);
@@ -190,6 +192,15 @@ const GroupResultsView: React.FC<GroupResultsViewProps> = ({
     fetchPendingRequests();
     // eslint-disable-next-line
   }, [fetchPendingRequests]);
+
+  // Mark group as read when entering results view
+  useEffect(() => {
+    if (groupId && user) {
+      console.log(`GroupResultsView: Entering results for group ${groupId}, marking as read`);
+      setCurrentGroup(groupId);
+      markGroupAsVisited(groupId);
+    }
+  }, [groupId, user, markGroupAsVisited, setCurrentGroup]);
 
   // Fetch group results
   useEffect(() => {
@@ -1071,7 +1082,7 @@ const GroupResultsView: React.FC<GroupResultsViewProps> = ({
                     const showDateSeparator = previousDate !== currentDate;
 
                     return (
-                      <React.Fragment key={message.id}>
+                      <div key={message.id}>
                         {showDateSeparator && (
                           <div className="flex justify-center my-4">
                             <div className="bg-muted px-4 py-1 rounded-full text-sm text-muted-foreground">
@@ -1100,7 +1111,7 @@ const GroupResultsView: React.FC<GroupResultsViewProps> = ({
                             </p>
                           </div>
                         </div>
-                      </React.Fragment>
+                      </div>
                     );
                   })}
                   <div ref={messagesEndRef} />

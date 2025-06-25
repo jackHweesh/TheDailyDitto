@@ -7,6 +7,7 @@ import { useToast } from '@/components/ui/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/context/AuthContext';
 import { Share2, Copy, ArrowLeft } from 'lucide-react';
+import { useUnreadCount } from '@/hooks/useUnreadCount';
 
 interface Message {
   id: string;
@@ -31,6 +32,7 @@ const ChatView: React.FC<ChatViewProps> = ({ groupId, groupName, onBack }) => {
   const { toast } = useToast();
   const { user } = useAuth();
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const { markGroupAsVisited, setCurrentGroup } = useUnreadCount();
 
   useEffect(() => {
     // Fetch chat messages
@@ -93,7 +95,16 @@ const ChatView: React.FC<ChatViewProps> = ({ groupId, groupName, onBack }) => {
       supabase.removeChannel(channel);
     };
   }, [groupId, toast]);
-  
+
+  // Mark group as read when entering chat
+  useEffect(() => {
+    if (groupId && user) {
+      console.log(`ChatView: Entering chat for group ${groupId}, marking as read`);
+      setCurrentGroup(groupId);
+      markGroupAsVisited(groupId);
+    }
+  }, [groupId, user, markGroupAsVisited, setCurrentGroup]);
+
   // Scroll to bottom when new messages arrive
   useEffect(() => {
     scrollToBottom();
@@ -169,6 +180,13 @@ const ChatView: React.FC<ChatViewProps> = ({ groupId, groupName, onBack }) => {
     return date.toLocaleDateString([], { weekday: 'long', month: 'long', day: 'numeric' });
   };
   
+  const handleBack = () => {
+    if (user && groupId) {
+      markGroupAsVisited(groupId);
+    }
+    onBack();
+  };
+
   return (
     <Card className="w-full max-w-md mx-auto shadow-lg border-0 animate-fade-in">
       <CardHeader className="space-y-1">
@@ -177,7 +195,7 @@ const ChatView: React.FC<ChatViewProps> = ({ groupId, groupName, onBack }) => {
             <Button 
               variant="ghost" 
               size="sm" 
-              onClick={onBack} 
+              onClick={handleBack} 
               className="mr-2 rounded-full p-2 bold-back-arrow"
             >
               <ArrowLeft className="w-9 h-9 stroke-2" />

@@ -38,12 +38,6 @@ export const AuthProvider: FC<{ children: ReactNode }> = ({ children }) => {
       const { data: { session } } = await supabase.auth.getSession();
       setSession(session);
       setUser(session?.user ?? null);
-      
-      // Check if we're on the reset-password page and set recovery state accordingly
-      if (window.location.pathname === '/reset-password') {
-        setIsPasswordRecovery(true);
-      }
-      
       setIsLoading(false);
     };
     getSession();
@@ -52,15 +46,9 @@ export const AuthProvider: FC<{ children: ReactNode }> = ({ children }) => {
       async (event, currentSession) => {
         if (event === 'PASSWORD_RECOVERY') {
           setIsPasswordRecovery(true);
-        } else if (event === 'USER_UPDATED') {
-          // Reset password recovery state when user is updated (including password changes)
-          setIsPasswordRecovery(false);
-        } else if (event === 'SIGNED_OUT') {
-          // Reset password recovery state on sign out
+        } else {
           setIsPasswordRecovery(false);
         }
-        // Don't reset isPasswordRecovery for other events
-        
         setSession(currentSession);
         setUser(currentSession?.user ?? null);
         setIsLoading(false);

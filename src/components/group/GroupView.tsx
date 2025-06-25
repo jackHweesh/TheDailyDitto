@@ -20,6 +20,8 @@ import GroupResultsView from './GroupResultsView';
 import GroupMembersPage from './GroupMembersPage';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import { ArrowLeft, Star } from 'lucide-react';
+import { useUnreadCount } from '@/hooks/useUnreadCount';
+import { UnreadBadge } from '@/components/ui/unread-badge';
 
 interface Group {
   id: string;
@@ -50,6 +52,7 @@ const GroupView: React.FC<GroupViewProps> = ({ questionId, onBack, options, ques
   const [showMembers, setShowMembers] = useState(false);
   const { toast } = useToast();
   const { user } = useAuth();
+  const { unreadCounts, markGroupAsVisited, refreshUnreadCounts, setCurrentGroup } = useUnreadCount();
 
   const fetchGroups = async () => {
     if (!user) return;
@@ -207,6 +210,17 @@ const GroupView: React.FC<GroupViewProps> = ({ questionId, onBack, options, ques
     };
   }, [user, toast, groupId]);
 
+  // Mark group as read when entering it
+  useEffect(() => {
+    if (groupId && user) {
+      console.log(`GroupView: Entering group ${groupId}, marking as read`);
+      setCurrentGroup(groupId);
+      markGroupAsVisited(groupId);
+    } else {
+      setCurrentGroup(null);
+    }
+  }, [groupId, user, markGroupAsVisited, setCurrentGroup]);
+
   const handleCreateGroup = async () => {
     if (!user) {
       toast({
@@ -267,7 +281,6 @@ const GroupView: React.FC<GroupViewProps> = ({ questionId, onBack, options, ques
   };
 
   const handleSelectGroup = (group: Group) => {
-    // Only allow access if user is a member or owner
     if (group.status === 'pending') {
       toast({
         title: "Access Denied",
@@ -429,7 +442,7 @@ const GroupView: React.FC<GroupViewProps> = ({ questionId, onBack, options, ques
         </p>
       </CardHeader>
       <CardContent className="space-y-4">
-        <div className="flex justify-end">
+        <div className="flex justify-end gap-2">
           <Dialog>
             <DialogTrigger asChild>
               <Button variant="outline" className="text-alike-teal border-alike-teal hover:bg-alike-teal/10">
@@ -478,19 +491,22 @@ const GroupView: React.FC<GroupViewProps> = ({ questionId, onBack, options, ques
                   }`}
                   onClick={() => handleSelectGroup(group)}
                 >
-                  <div>
-                    <p className={`font-medium ${activeGroup?.id === group.id ? 'text-white' : 'text-alike-navy'}`}>
-                      {group.name}
-                      {/* Show star icon for Friends group owned by user, otherwise show (Owner) or (Pending) */}
-                      {group.name === 'Friends' && group.owner_id === user?.id && (
-                        <Star size={18} color="#fff" fill="#4FD1C5" strokeWidth={2} className="inline ml-1 align-text-bottom" />
-                      )}
-                      {group.name !== 'Friends' && group.status === 'owner' && ' (Owner)'}
-                      {group.status === 'pending' && ' (Pending)'}
-                    </p>
-                    <p className={`text-xs ${activeGroup?.id === group.id ? 'text-white/80' : 'text-muted-foreground'}`}>
-                      {group.memberCount} members
-                    </p>
+                  <div className="flex items-center gap-2">
+                    <div>
+                      <p className={`font-medium ${activeGroup?.id === group.id ? 'text-white' : 'text-alike-navy'}`}>
+                        {group.name}
+                        {/* Show star icon for Friends group owned by user, otherwise show (Owner) or (Pending) */}
+                        {group.name === 'Friends' && group.owner_id === user?.id && (
+                          <Star size={18} color="#fff" fill="#4FD1C5" strokeWidth={2} className="inline ml-1 align-text-bottom friends-star-align" />
+                        )}
+                        {group.name !== 'Friends' && group.status === 'owner' && ' (Owner)'}
+                        {group.status === 'pending' && ' (Pending)'}
+                      </p>
+                      <p className={`text-xs ${activeGroup?.id === group.id ? 'text-white/80' : 'text-muted-foreground'}`}>
+                        {group.memberCount} members
+                      </p>
+                    </div>
+                    <UnreadBadge count={unreadCounts[group.id] || 0} />
                   </div>
                   {activeGroup?.id === group.id && (
                     <div className="w-2 h-2 rounded-full bg-white"></div>
@@ -506,3 +522,11 @@ const GroupView: React.FC<GroupViewProps> = ({ questionId, onBack, options, ques
 };
 
 export default GroupView;
+
+<style>
+  {`
+    .friends-star-align {
+      transform: translateY(-10px);
+    }
+  `}
+</style>
