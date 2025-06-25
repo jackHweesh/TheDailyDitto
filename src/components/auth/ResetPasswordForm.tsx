@@ -22,28 +22,32 @@ const ResetPasswordForm: React.FC = () => {
       setIsCheckingSession(true);
       
       try {
-        // Check if we have URL parameters that indicate a password recovery
-        const urlParams = new URLSearchParams(window.location.search);
-        const hashParams = new URLSearchParams(window.location.hash.replace('#', '?'));
-        
-        const hasRecoveryParams = urlParams.has('access_token') || 
-                                 urlParams.has('refresh_token') || 
-                                 hashParams.has('access_token') || 
-                                 hashParams.has('refresh_token');
-        
-        if (!hasRecoveryParams) {
-          setError('Invalid or expired password reset link');
-          setIsValidSession(false);
-          return;
-        }
-        
-        // Try to get the current session
+        // Handle recovery session from URL parameters
         const { data, error } = await supabase.auth.getSession();
         
-        if (error || !data.session) {
-          setError('Invalid or expired password reset link');
-          setIsValidSession(false);
-          return;
+        // If no session exists, check if we have recovery parameters in URL
+        if (!data.session) {
+          const urlParams = new URLSearchParams(window.location.search);
+          const hashParams = new URLSearchParams(window.location.hash.replace('#', '?'));
+          
+          const hasRecoveryParams = urlParams.has('access_token') || 
+                                   urlParams.has('refresh_token') || 
+                                   hashParams.has('access_token') || 
+                                   hashParams.has('refresh_token');
+          
+          if (!hasRecoveryParams) {
+            setError('Invalid or expired password reset link');
+            setIsValidSession(false);
+            return;
+          }
+          
+          // Try to get user info to validate the recovery token
+          const { data: userData, error: userError } = await supabase.auth.getUser();
+          if (userError || !userData.user) {
+            setError('Invalid or expired password reset link');
+            setIsValidSession(false);
+            return;
+          }
         }
         
         setIsValidSession(true);

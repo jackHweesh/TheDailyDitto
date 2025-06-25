@@ -48,8 +48,11 @@ export const AuthProvider: FC<{ children: ReactNode }> = ({ children }) => {
           setIsPasswordRecovery(true);
           // Immediately sign out to prevent auto-sign-in from password recovery links
           await supabase.auth.signOut();
+          // Don't set session or user for PASSWORD_RECOVERY event
           setSession(null);
           setUser(null);
+          setIsLoading(false);
+          return; // Exit early to prevent further processing
         } else {
           setIsPasswordRecovery(false);
         }
