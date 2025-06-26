@@ -266,7 +266,10 @@ const Dashboard: React.FC = () => {
             <ResultsView
               question={questionData.question}
               results={results}
-              onViewGroups={() => setCurrentView(DashboardView.GROUPS)}
+              onViewGroups={() => {
+                setCurrentView(DashboardView.GROUPS);
+                navigate('/groups');
+              }}
               isLoading={resultsLoading}
               onRefresh={() => fetchResults(questionData.id)}
             />

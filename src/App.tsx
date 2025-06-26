@@ -54,6 +54,7 @@ const App = () => {
                 } />
                 <Route path="/auth" element={<Auth />} />
                 <Route path="/" element={<Dashboard />} />
+                <Route path="/groups" element={<Dashboard />} />
                 <Route path="/groups/:groupId" element={<Dashboard />} />
                 <Route path="/groups/:groupId/results" element={<Dashboard />} />
                 <Route path="/groups/:groupId/members" element={<Dashboard />} />
