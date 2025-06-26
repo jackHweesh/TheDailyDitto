@@ -22,41 +22,38 @@ const ResetPasswordForm: React.FC = () => {
   useEffect(() => {
     const handlePasswordReset = async () => {
       setIsCheckingSession(true);
-      
       try {
-        // Check if we have URL parameters that indicate a password recovery
-        const urlParams = new URLSearchParams(window.location.search);
-        const hashParams = new URLSearchParams(window.location.hash.replace('#', '?'));
-        
-        const hasRecoveryParams = urlParams.has('access_token') || 
-                                 urlParams.has('refresh_token') || 
-                                 hashParams.has('access_token') || 
-                                 hashParams.has('refresh_token');
-        
-        if (!hasRecoveryParams) {
-          setError('Invalid or expired password reset link');
-          setIsValidSession(false);
-          return;
+        // Manually parse tokens from URL fragment
+        const hash = window.location.hash.substring(1);
+        const params = new URLSearchParams(hash);
+        const access_token = params.get('access_token');
+        const refresh_token = params.get('refresh_token');
+        if (access_token && refresh_token) {
+          await supabase.auth.setSession({ access_token, refresh_token });
         }
-        
-        // Try to get the current session
+        // Validate we have a recovery session
         const { data, error } = await supabase.auth.getSession();
-        
         if (error || !data.session) {
           setError('Invalid or expired password reset link');
           setIsValidSession(false);
           return;
         }
-        
+        // Additional validation: ensure this is a recovery session
+        const { data: userData, error: userError } = await supabase.auth.getUser();
+        if (userError || !userData.user) {
+          setError('Invalid or expired password reset link');
+          setIsValidSession(false);
+          return;
+        }
         setIsValidSession(true);
       } catch (err) {
+        console.error('Password reset error:', err);
         setError('Invalid or expired password reset link');
         setIsValidSession(false);
       } finally {
         setIsCheckingSession(false);
       }
     };
-
     handlePasswordReset();
   }, []);
 
@@ -167,4 +164,4 @@ const ResetPasswordForm: React.FC = () => {
   );
 };
 
-export default ResetPasswordForm; 
+export default ResetPasswordForm;

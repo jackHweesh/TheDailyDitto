@@ -46,14 +46,20 @@ export const AuthProvider: FC<{ children: ReactNode }> = ({ children }) => {
       async (event, currentSession) => {
         if (event === 'PASSWORD_RECOVERY') {
           setIsPasswordRecovery(true);
-          // Don't sign out immediately - preserve the recovery session
+          setSession(currentSession);
+          setUser(currentSession?.user ?? null);
+        } else if (event === 'SIGNED_IN') {
+          // Only clear password recovery flag for non-recovery sign-ins
+          if (currentSession?.user && currentSession.user.app_metadata?.provider !== 'email') {
+            setIsPasswordRecovery(false);
+          }
           setSession(currentSession);
           setUser(currentSession?.user ?? null);
         } else {
           setIsPasswordRecovery(false);
+          setSession(currentSession);
+          setUser(currentSession?.user ?? null);
         }
-        setSession(currentSession);
-        setUser(currentSession?.user ?? null);
         setIsLoading(false);
 
         if (event === 'SIGNED_IN' && currentSession?.user) {
@@ -189,7 +195,8 @@ export const AuthProvider: FC<{ children: ReactNode }> = ({ children }) => {
     resetPassword: async (email: string) => {
         const { error } = await supabase.auth.resetPasswordForEmail(email, {
             redirectTo: window.location.origin + '/reset-password',
-        });
+            shouldUseExistingSession: false
+        } as any);
         if (error) {
             console.error('Password reset error:', error);
             toast({
