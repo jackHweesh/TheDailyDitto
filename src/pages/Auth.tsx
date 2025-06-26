@@ -25,8 +25,9 @@ const Auth: React.FC = () => {
     }
   }, [location.state]);
   
-  // If authenticated, redirect to home
-  if (user && !isLoading) {
+  // Only redirect if user is authenticated and not loading
+  // This allows recovery sessions to see the login form
+  if (user && !isLoading && !location.pathname.includes('reset-password')) {
     return <Navigate to="/" replace />;
   }
   

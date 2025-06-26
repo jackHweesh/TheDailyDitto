@@ -126,7 +126,11 @@ const ResetPasswordForm: React.FC = () => {
         <CardContent className="text-center">
           <p className="text-red-600 mb-4">{error}</p>
           <Button
-            onClick={() => navigate('/auth')}
+            onClick={async () => {
+              // Sign out the user before navigating to prevent auto-sign in
+              await supabase.auth.signOut();
+              navigate('/auth');
+            }}
             className="w-full bg-alike-teal hover:bg-alike-teal/90 text-white rounded-md h-12"
           >
             Back to Login
@@ -184,7 +188,11 @@ const ResetPasswordForm: React.FC = () => {
           <div className="mt-4 text-sm text-center text-muted-foreground">
             <Button
               variant="link"
-              onClick={() => navigate('/auth')}
+              onClick={async () => {
+                // Sign out the user before navigating to prevent auto-sign in
+                await supabase.auth.signOut();
+                navigate('/auth');
+              }}
               className="p-0 text-alike-teal"
               disabled={isLoading}
             >
