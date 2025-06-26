@@ -42,16 +42,6 @@ export const AuthProvider: FC<{ children: ReactNode }> = ({ children }) => {
 
     const { data: authListener } = supabase.auth.onAuthStateChange(
       async (event, currentSession) => {
-        // Ignore recovery-style sign-ins when we're on the auth page
-        // This prevents auto-navigation during password reset flow
-        if (
-          (event === 'SIGNED_IN' || event === 'PASSWORD_RECOVERY') &&
-          window.location.pathname === '/auth'
-        ) {
-          // We're still on the auth page — bail out so we don't auto-navigate
-          return;
-        }
-
         if (event === 'SIGNED_IN') {
           setSession(currentSession);
           setUser(currentSession?.user ?? null);
