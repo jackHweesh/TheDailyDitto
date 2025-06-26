@@ -42,6 +42,12 @@ export const AuthProvider: FC<{ children: ReactNode }> = ({ children }) => {
 
     const { data: authListener } = supabase.auth.onAuthStateChange(
       async (event, currentSession) => {
+        if (event === 'PASSWORD_RECOVERY') {
+          // Route to reset password page when recovery link is clicked
+          window.location.href = '/reset-password';
+          return;
+        }
+        
         if (event === 'SIGNED_IN') {
           setSession(currentSession);
           setUser(currentSession?.user ?? null);
