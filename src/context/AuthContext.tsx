@@ -34,8 +34,17 @@ export const AuthProvider: FC<{ children: ReactNode }> = ({ children }) => {
     setIsLoading(true);
     const getSession = async () => {
       const { data: { session } } = await supabase.auth.getSession();
-      setSession(session);
-      setUser(session?.user ?? null);
+      
+      // Ignore recovery sessions when we're on the auth page
+      // This prevents auto-sign in on page refresh during password reset flow
+      if (session && window.location.pathname === '/auth') {
+        // We're on the auth page with a session — don't set it to prevent auto-navigation
+        setSession(null);
+        setUser(null);
+      } else {
+        setSession(session);
+        setUser(session?.user ?? null);
+      }
       setIsLoading(false);
     };
     getSession();
