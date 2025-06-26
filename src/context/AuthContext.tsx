@@ -194,6 +194,10 @@ export const AuthProvider: FC<{ children: ReactNode }> = ({ children }) => {
             });
             throw error;
         }
+        // Sign out the user to prevent auto-sign in on the original tab
+        await supabase.auth.signOut();
+        setSession(null);
+        setUser(null);
     },
     updatePassword: async (password: string) => {
         const { error } = await supabase.auth.updateUser({ password });
