@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -27,6 +26,8 @@ const ForgotPasswordForm: React.FC<ForgotPasswordFormProps> = ({ onBackToLogin }
         title: "Password reset email sent",
         description: "If your email exists in our system, you'll receive a password reset link.",
       });
+      // Clear the email field after successful submission
+      setEmail('');
     } catch (error) {
       // Error is already handled in the resetPassword function
     } finally {
@@ -63,7 +64,7 @@ const ForgotPasswordForm: React.FC<ForgotPasswordFormProps> = ({ onBackToLogin }
             className="w-full bg-alike-teal hover:bg-alike-teal/90 text-white rounded-md h-12"
             disabled={isLoading}
           >
-            {isLoading ? "Sending..." : "Reset"}
+            {isLoading ? "Sending..." : "Send reset link"}
           </Button>
           <div className="mt-4 text-sm text-center text-muted-foreground">
             <Button 

@@ -8,7 +8,6 @@ interface AuthContextType {
   user: User | null;
   session: Session | null;
   isLoading: boolean;
-  isPasswordRecovery: boolean;
   signUp: (email: string, password: string, userData: any) => Promise<{ success: boolean; voteTransferred: boolean }>;
   signIn: (email: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
@@ -29,7 +28,6 @@ export const AuthProvider: FC<{ children: ReactNode }> = ({ children }) => {
   const [session, setSession] = useState<Session | null>(null);
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [isPasswordRecovery, setIsPasswordRecovery] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -44,19 +42,10 @@ export const AuthProvider: FC<{ children: ReactNode }> = ({ children }) => {
 
     const { data: authListener } = supabase.auth.onAuthStateChange(
       async (event, currentSession) => {
-        if (event === 'PASSWORD_RECOVERY') {
-          setIsPasswordRecovery(true);
-          setSession(currentSession);
-          setUser(currentSession?.user ?? null);
-        } else if (event === 'SIGNED_IN') {
-          // Only clear password recovery flag for non-recovery sign-ins
-          if (currentSession?.user && currentSession.user.app_metadata?.provider !== 'email') {
-            setIsPasswordRecovery(false);
-          }
+        if (event === 'SIGNED_IN') {
           setSession(currentSession);
           setUser(currentSession?.user ?? null);
         } else {
-          setIsPasswordRecovery(false);
           setSession(currentSession);
           setUser(currentSession?.user ?? null);
         }
@@ -153,7 +142,6 @@ export const AuthProvider: FC<{ children: ReactNode }> = ({ children }) => {
     user,
     session,
     isLoading,
-    isPasswordRecovery,
     signUp: async (email: string, password: string, userData: any) => {
         const { data, error } = await supabase.auth.signUp({
             email,
@@ -194,9 +182,8 @@ export const AuthProvider: FC<{ children: ReactNode }> = ({ children }) => {
     },
     resetPassword: async (email: string) => {
         const { error } = await supabase.auth.resetPasswordForEmail(email, {
-            redirectTo: window.location.origin + '/reset-password',
-            shouldUseExistingSession: false
-        } as any);
+            redirectTo: `${window.location.origin}/reset-password`,
+        });
         if (error) {
             console.error('Password reset error:', error);
             toast({
@@ -219,9 +206,8 @@ export const AuthProvider: FC<{ children: ReactNode }> = ({ children }) => {
             throw error;
         }
         
-        // After successful password update, sign out and clear recovery state
+        // After successful password update, sign out and redirect to login
         await supabase.auth.signOut();
-        setIsPasswordRecovery(false);
         setSession(null);
         setUser(null);
     }

@@ -10,6 +10,7 @@ import { useAuth } from '@/context/AuthContext';
 
 const ResetPasswordForm: React.FC = () => {
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const [isValidSession, setIsValidSession] = useState(false);
@@ -18,43 +19,37 @@ const ResetPasswordForm: React.FC = () => {
   const navigate = useNavigate();
   const { updatePassword } = useAuth();
 
-  // Get recovery session from URL on mount
+  // Check if we have a valid recovery session on mount
   useEffect(() => {
-    const handlePasswordReset = async () => {
+    const checkRecoverySession = async () => {
       setIsCheckingSession(true);
       try {
-        // Manually parse tokens from URL fragment
-        const hash = window.location.hash.substring(1);
-        const params = new URLSearchParams(hash);
-        const access_token = params.get('access_token');
-        const refresh_token = params.get('refresh_token');
-        if (access_token && refresh_token) {
-          await supabase.auth.setSession({ access_token, refresh_token });
-        }
-        // Validate we have a recovery session
         const { data, error } = await supabase.auth.getSession();
         if (error || !data.session) {
           setError('Invalid or expired password reset link');
           setIsValidSession(false);
           return;
         }
-        // Additional validation: ensure this is a recovery session
+        
+        // Check if this is a recovery session
         const { data: userData, error: userError } = await supabase.auth.getUser();
         if (userError || !userData.user) {
           setError('Invalid or expired password reset link');
           setIsValidSession(false);
           return;
         }
+        
         setIsValidSession(true);
       } catch (err) {
-        console.error('Password reset error:', err);
+        console.error('Session validation error:', err);
         setError('Invalid or expired password reset link');
         setIsValidSession(false);
       } finally {
         setIsCheckingSession(false);
       }
     };
-    handlePasswordReset();
+    
+    checkRecoverySession();
   }, []);
 
   const handleReset = async (e: React.FormEvent) => {
@@ -62,8 +57,20 @@ const ResetPasswordForm: React.FC = () => {
     setIsLoading(true);
     setError('');
 
+    // Validate password
+    if (password.length < 6) {
+      setError('Password must be at least 6 characters long');
+      setIsLoading(false);
+      return;
+    }
+
+    if (password !== confirmPassword) {
+      setError('Passwords do not match');
+      setIsLoading(false);
+      return;
+    }
+
     try {
-      // Update the password using the AuthContext method
       await updatePassword(password);
       
       toast({
@@ -71,7 +78,7 @@ const ResetPasswordForm: React.FC = () => {
         description: 'You can now log in with your new password.',
       });
       
-      // Redirect to login page immediately
+      // Redirect to login page
       navigate('/auth');
     } catch (err: unknown) {
       const errorMessage = err instanceof Error ? err.message : 'An error occurred while resetting your password.';
@@ -128,16 +135,30 @@ const ResetPasswordForm: React.FC = () => {
       </CardHeader>
       <form onSubmit={handleReset}>
         <CardContent className="space-y-4">
-          <Input
-            type="password"
-            placeholder="New password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            className="rounded-md h-12"
-            required
-            minLength={6}
-            disabled={isLoading}
-          />
+          <div className="space-y-2">
+            <Input
+              type="password"
+              placeholder="New password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className="rounded-md h-12"
+              required
+              minLength={6}
+              disabled={isLoading}
+            />
+          </div>
+          <div className="space-y-2">
+            <Input
+              type="password"
+              placeholder="Confirm new password"
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              className="rounded-md h-12"
+              required
+              minLength={6}
+              disabled={isLoading}
+            />
+          </div>
           {error && <div className="text-red-600 text-sm text-center">{error}</div>}
         </CardContent>
         <CardFooter className="flex flex-col">
@@ -164,4 +185,4 @@ const ResetPasswordForm: React.FC = () => {
   );
 };
 
-export default ResetPasswordForm;
+export default ResetPasswordForm; 

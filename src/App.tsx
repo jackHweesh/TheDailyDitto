@@ -11,7 +11,6 @@ import Auth from "./pages/Auth";
 import Dashboard from "./pages/Dashboard";
 import NotFound from "./pages/NotFound";
 import ResetPasswordForm from "@/components/auth/ResetPasswordForm";
-import ProtectedRoute from "@/components/auth/ProtectedRoute";
 import PrivacyPolicy from "./pages/PrivacyPolicy";
 import TermsOfService from "./pages/TermsOfService";
 import Contact from "./pages/Contact";
