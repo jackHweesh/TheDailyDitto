@@ -19,7 +19,7 @@ const ResetPasswordForm: React.FC = () => {
   const navigate = useNavigate();
   const { updatePassword } = useAuth();
 
-  // Check if we have a valid recovery session on mount
+  // Check if we have a valid recovery session on mount and listen for PASSWORD_RECOVERY events
   useEffect(() => {
     const checkRecoverySession = async () => {
       setIsCheckingSession(true);
@@ -50,6 +50,18 @@ const ResetPasswordForm: React.FC = () => {
     };
     
     checkRecoverySession();
+
+    // Listen for PASSWORD_RECOVERY events locally
+    const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'PASSWORD_RECOVERY') {
+        setIsValidSession(true);
+        setIsCheckingSession(false);
+      }
+    });
+
+    return () => {
+      authListener?.subscription.unsubscribe();
+    };
   }, []);
 
   const handleReset = async (e: React.FormEvent) => {
