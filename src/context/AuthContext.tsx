@@ -35,13 +35,17 @@ export const AuthProvider: FC<{ children: ReactNode }> = ({ children }) => {
     const getSession = async () => {
       const { data: { session } } = await supabase.auth.getSession();
       
-      // Ignore recovery sessions when we're on the auth page
+      // Only ignore recovery sessions when we're in the forgot password flow
       // This prevents auto-sign in on page refresh during password reset flow
-      if (session && window.location.pathname === '/auth') {
-        // We're on the auth page with a session — don't set it to prevent auto-navigation
+      // but preserves normal login behavior
+      const isInForgotPasswordFlow = localStorage.getItem('inForgotPasswordFlow') === 'true';
+      
+      if (session && isInForgotPasswordFlow) {
+        // We're in forgot password flow with a session — don't set it to prevent auto-navigation
         setSession(null);
         setUser(null);
       } else {
+        // Normal behavior — set session
         setSession(session);
         setUser(session?.user ?? null);
       }
@@ -51,13 +55,15 @@ export const AuthProvider: FC<{ children: ReactNode }> = ({ children }) => {
 
     const { data: authListener } = supabase.auth.onAuthStateChange(
       async (event, currentSession) => {
-        // Ignore recovery-style sign-ins when we're on the auth page
+        // Only ignore recovery-style sign-ins when we're in the forgot password flow
         // This prevents auto-navigation during password reset flow
+        const isInForgotPasswordFlow = localStorage.getItem('inForgotPasswordFlow') === 'true';
+        
         if (
           (event === 'SIGNED_IN' || event === 'PASSWORD_RECOVERY') &&
-          window.location.pathname === '/auth'
+          isInForgotPasswordFlow
         ) {
-          // We're still on the auth page — bail out so we don't auto-navigate
+          // We're in forgot password flow — bail out so we don't auto-navigate
           return;
         }
 

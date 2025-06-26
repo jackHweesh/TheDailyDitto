@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card';
@@ -17,16 +17,6 @@ const ForgotPasswordForm: React.FC<ForgotPasswordFormProps> = ({ onBackToLogin }
   const { toast } = useToast();
   const { resetPassword } = useAuth();
 
-  // Set flag when user enters forgot password flow
-  useEffect(() => {
-    localStorage.setItem('inForgotPasswordFlow', 'true');
-    
-    // Clean up flag when component unmounts
-    return () => {
-      localStorage.removeItem('inForgotPasswordFlow');
-    };
-  }, []);
-
   const handleReset = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
@@ -43,11 +33,6 @@ const ForgotPasswordForm: React.FC<ForgotPasswordFormProps> = ({ onBackToLogin }
     } finally {
       setIsLoading(false);
     }
-  };
-
-  const handleBackToLogin = () => {
-    localStorage.removeItem('inForgotPasswordFlow');
-    onBackToLogin();
   };
 
   // Show success message after email is sent
@@ -68,7 +53,7 @@ const ForgotPasswordForm: React.FC<ForgotPasswordFormProps> = ({ onBackToLogin }
         </CardContent>
         <CardFooter className="flex flex-col">
           <Button 
-            onClick={handleBackToLogin} 
+            onClick={onBackToLogin} 
             className="w-full bg-alike-teal hover:bg-alike-teal/90 text-white rounded-md h-12"
           >
             Back to login
@@ -112,7 +97,7 @@ const ForgotPasswordForm: React.FC<ForgotPasswordFormProps> = ({ onBackToLogin }
           <div className="mt-4 text-sm text-center text-muted-foreground">
             <Button 
               variant="link" 
-              onClick={handleBackToLogin} 
+              onClick={onBackToLogin} 
               className="p-0 text-alike-teal"
               disabled={isLoading}
             >
