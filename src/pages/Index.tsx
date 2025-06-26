@@ -10,7 +10,6 @@ import WelcomeScreen from '@/components/welcome/WelcomeScreen';
 import { useToast } from '@/components/ui/use-toast';
 import { useAuth } from '@/context/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
-import ResetPasswordForm from '@/components/auth/ResetPasswordForm';
 import Settings from './Settings';
 import PrivacyPolicy from './PrivacyPolicy';
 import TermsOfService from './TermsOfService';
@@ -37,10 +36,10 @@ enum AppView {
 const Index = () => {
   const [view, setView] = useState<AppView>(AppView.WELCOME);
   const { toast } = useToast();
-  const { user, isPasswordRecovery } = useAuth();
+  const { user } = useAuth();
 
-  // If user is authenticated and not in password recovery, redirect to dashboard
-  if (user && !isPasswordRecovery) {
+  // If user is authenticated, redirect to dashboard
+  if (user) {
     return <Navigate to="/dashboard" replace />;
   }
 
