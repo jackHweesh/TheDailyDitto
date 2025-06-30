@@ -50,6 +50,7 @@ const Header: React.FC<HeaderProps> = ({ hasVoted, onLogoClick, fixed = true, st
                   <DropdownMenuItem onClick={() => navigate('/profile')}>Profile</DropdownMenuItem>
                   <DropdownMenuItem onClick={() => navigate('/how-to-play')}>How to Play</DropdownMenuItem>
                   <DropdownMenuItem onClick={() => navigate('/contact')}>Contact Us</DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => navigate('/about')}>About</DropdownMenuItem>
                   <DropdownMenuItem onClick={() => navigate('/privacy-policy')}>Privacy Policy</DropdownMenuItem>
                   <DropdownMenuItem onClick={() => navigate('/terms-of-service')}>Terms of Service</DropdownMenuItem>
                   <DropdownMenuItem onClick={async () => { await supabase.auth.signOut(); navigate('/auth'); }}>Log out</DropdownMenuItem>
@@ -58,6 +59,7 @@ const Header: React.FC<HeaderProps> = ({ hasVoted, onLogoClick, fixed = true, st
                 <>
                   <DropdownMenuItem onClick={() => navigate('/how-to-play')}>How to Play</DropdownMenuItem>
                   <DropdownMenuItem onClick={() => navigate('/contact')}>Contact Us</DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => navigate('/about')}>About</DropdownMenuItem>
                   <DropdownMenuItem onClick={() => navigate('/privacy-policy')}>Privacy Policy</DropdownMenuItem>
                   <DropdownMenuItem onClick={() => navigate('/terms-of-service')}>Terms of Service</DropdownMenuItem>
                   <DropdownMenuItem onClick={() => navigate('/auth')}>Log in</DropdownMenuItem>

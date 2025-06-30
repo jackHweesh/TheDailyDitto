@@ -15,6 +15,7 @@ import PrivacyPolicy from "./pages/PrivacyPolicy";
 import TermsOfService from "./pages/TermsOfService";
 import Contact from "./pages/Contact";
 import HowToPlay from "./pages/HowToPlay";
+import About from "./pages/About";
 import Profile from "./pages/Profile";
 import SignupPrompt from "./components/auth/SignupPrompt";
 import FriendInvite from "./pages/FriendInvite";
@@ -61,6 +62,7 @@ const App = () => {
                 <Route path="/terms-of-service" element={<TermsOfService />} />
                 <Route path="/contact" element={<Contact />} />
                 <Route path="/how-to-play" element={<HowToPlay />} />
+                <Route path="/about" element={<About />} />
                 <Route path="/profile" element={<Profile />} />
                 <Route path="/signup-prompt" element={<SignupPrompt />} />
                 <Route path="/invite/friend/:token" element={<FriendInvite />} />
