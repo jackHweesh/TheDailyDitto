@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardFooter } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -8,6 +8,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/context/AuthContext';
 import { Share2, Copy, ArrowLeft } from 'lucide-react';
 import { useUnreadCount } from '@/hooks/useUnreadCount';
+import { MessageReactions, MessageReaction } from '@/components/ui/message-reactions';
 
 interface Message {
   id: string;
@@ -23,6 +24,47 @@ interface ChatViewProps {
   onBack: () => void;
 }
 
+function useLongPress(callback: () => void, ms = 500) {
+  const timeout = useRef<NodeJS.Timeout | null>(null);
+  const start = useCallback(() => {
+    timeout.current = setTimeout(callback, ms);
+  }, [callback, ms]);
+  const clear = useCallback(() => {
+    if (timeout.current) clearTimeout(timeout.current);
+  }, []);
+  return {
+    onMouseDown: start,
+    onMouseUp: clear,
+    onMouseLeave: clear,
+    onTouchStart: start,
+    onTouchEnd: clear,
+    onTouchCancel: clear,
+    onContextMenu: (e: React.MouseEvent) => { e.preventDefault(); callback(); },
+  };
+}
+
+const MessageBubble: React.FC<{
+  isCurrentUser: boolean;
+  children: React.ReactNode;
+  onLongPress: () => void;
+}> = ({ isCurrentUser, children, onLongPress }) => {
+  const longPressHandlers = useLongPress(onLongPress, 500);
+  return (
+    <div
+      className={`max-w-[80%] rounded-lg p-3 ${
+        isCurrentUser
+          ? 'bg-alike-teal text-white rounded-br-none'
+          : 'bg-muted rounded-bl-none'
+      }`}
+      tabIndex={0}
+      aria-label="Chat message"
+      {...longPressHandlers}
+    >
+      {children}
+    </div>
+  );
+};
+
 const ChatView: React.FC<ChatViewProps> = ({ groupId, groupName, onBack }) => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState('');
@@ -33,6 +75,8 @@ const ChatView: React.FC<ChatViewProps> = ({ groupId, groupName, onBack }) => {
   const { user } = useAuth();
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const { markGroupAsVisited, setCurrentGroup } = useUnreadCount();
+  const [reactions, setReactions] = useState<MessageReaction[]>([]);
+  const [pickerOpenId, setPickerOpenId] = useState<string | null>(null);
 
   useEffect(() => {
     // Fetch chat messages
@@ -187,6 +231,79 @@ const ChatView: React.FC<ChatViewProps> = ({ groupId, groupName, onBack }) => {
     onBack();
   };
 
+  // Fetch reactions for visible messages
+  useEffect(() => {
+    const fetchReactions = async () => {
+      if (!messages.length) return;
+      const messageIds = messages.map(m => m.id);
+      const { data, error } = await supabase
+        .from('message_reactions')
+        .select('*')
+        .in('message_id', messageIds);
+      if (!error && data) setReactions(data);
+    };
+    fetchReactions();
+  }, [messages]);
+
+  // Real-time subscription for reactions
+  useEffect(() => {
+    const channel = supabase
+      .channel('message-reactions-channel')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'message_reactions' }, payload => {
+        setReactions(prev => {
+          if (payload.eventType === 'INSERT') {
+            const newR = payload.new as MessageReaction;
+            return [
+              ...prev.filter(r => !(r.message_id === newR.message_id && r.user_id === newR.user_id)),
+              newR
+            ];
+          } else if (payload.eventType === 'UPDATE') {
+            const newR = payload.new as MessageReaction;
+            return prev.map(r => r.id === newR.id ? newR : r);
+          } else if (payload.eventType === 'DELETE') {
+            const oldR = payload.old as MessageReaction;
+            return prev.filter(r => r.id !== oldR.id);
+          }
+          return prev;
+        });
+      })
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, []);
+
+  // Reaction handler
+  const handleReact = async (messageId: string, emoji: string | null) => {
+    if (!user) return;
+    const existing = reactions.find(r => r.message_id === messageId && r.user_id === user.id);
+    // Optimistic update
+    if (emoji === null && existing) {
+      setReactions(prev => prev.filter(r => r.id !== existing.id));
+      await supabase.from('message_reactions').delete().eq('id', existing.id);
+    } else if (emoji && (!existing || existing.emoji !== emoji)) {
+      const newReaction: MessageReaction = {
+        id: existing?.id || `optimistic-${messageId}-${user.id}`,
+        message_id: messageId,
+        user_id: user.id,
+        emoji,
+        created_at: existing?.created_at || new Date().toISOString(),
+      };
+      setReactions(prev => [
+        ...prev.filter(r => !(r.message_id === messageId && r.user_id === user.id)),
+        newReaction
+      ]);
+      try {
+        if (existing) {
+          await supabase.from('message_reactions').update({ emoji }).eq('id', existing.id);
+        } else {
+          await supabase.from('message_reactions').insert({ message_id: messageId, user_id: user.id, emoji });
+        }
+      } catch (e: any) {
+        // Handle duplicate error gracefully
+        setReactions(prev => prev.filter(r => !(r.message_id === messageId && r.user_id === user.id)));
+      }
+    }
+  };
+
   return (
     <Card className="w-full max-w-md mx-auto shadow-lg border-0 animate-fade-in">
       <CardHeader className="space-y-1">
@@ -223,7 +340,6 @@ const ChatView: React.FC<ChatViewProps> = ({ groupId, groupName, onBack }) => {
                 const currentDate = new Date(message.created_at).toDateString();
                 const previousDate = index > 0 ? new Date(messages[index - 1].created_at).toDateString() : null;
                 const showDateSeparator = previousDate !== currentDate;
-
                 return (
                   <React.Fragment key={message.id}>
                     {showDateSeparator && (
@@ -233,25 +349,29 @@ const ChatView: React.FC<ChatViewProps> = ({ groupId, groupName, onBack }) => {
                         </div>
                       </div>
                     )}
-                    <div 
-                      className={`flex ${isCurrentUser ? 'justify-end' : 'justify-start'}`}
-                    >
-                      <div 
-                        className={`max-w-[80%] rounded-lg p-3 ${
-                          isCurrentUser 
-                            ? 'bg-alike-teal text-white rounded-br-none' 
-                            : 'bg-muted rounded-bl-none'
-                        }`}
-                      >
-                        {!isCurrentUser && (
-                          <p className="text-xs font-semibold mb-1">
-                            {userProfiles[message.user_id] || 'Unknown User'}
+                    <div className="flex flex-col">
+                      <div className={`flex ${isCurrentUser ? 'justify-end' : 'justify-start'}`}>
+                        <MessageBubble isCurrentUser={isCurrentUser} onLongPress={() => setPickerOpenId(message.id)}>
+                          {!isCurrentUser && (
+                            <p className="text-xs font-semibold mb-1">
+                              {userProfiles[message.user_id] || 'Unknown User'}
+                            </p>
+                          )}
+                          <p className="text-sm">{message.message}</p>
+                          <p className={`text-xs mt-1 text-right ${isCurrentUser ? 'text-white/70' : 'text-muted-foreground'}`}>
+                            {formatMessageDate(message.created_at)}
                           </p>
-                        )}
-                        <p className="text-sm">{message.message}</p>
-                        <p className={`text-xs mt-1 text-right ${isCurrentUser ? 'text-white/70' : 'text-muted-foreground'}`}>
-                          {formatMessageDate(message.created_at)}
-                        </p>
+                        </MessageBubble>
+                      </div>
+                      <div className={`flex ${isCurrentUser ? 'justify-end' : 'justify-start'}`}>
+                        <MessageReactions
+                          messageId={message.id}
+                          currentUserId={user?.id || ''}
+                          reactions={reactions.filter(r => r.message_id === message.id)}
+                          onReact={emoji => handleReact(message.id, emoji)}
+                          open={pickerOpenId === message.id}
+                          onOpenChange={open => setPickerOpenId(open ? message.id : null)}
+                        />
                       </div>
                     </div>
                   </React.Fragment>

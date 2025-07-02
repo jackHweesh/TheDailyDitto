@@ -37,6 +37,7 @@ const SignupPrompt: React.FC = () => {
               <DropdownMenuContent align="end">
                 <DropdownMenuItem onClick={() => navigate('/how-to-play')}>How to Play</DropdownMenuItem>
                 <DropdownMenuItem onClick={() => navigate('/contact')}>Contact Us</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => navigate('/about')}>About</DropdownMenuItem>
                 <DropdownMenuItem onClick={() => navigate('/privacy-policy')}>Privacy Policy</DropdownMenuItem>
                 <DropdownMenuItem onClick={() => navigate('/terms-of-service')}>Terms of Service</DropdownMenuItem>
                 <DropdownMenuItem onClick={() => navigate('/auth')}>Log in</DropdownMenuItem>
