@@ -240,10 +240,20 @@ const ChatView: React.FC<ChatViewProps> = ({ groupId, groupName, onBack }) => {
         .from('message_reactions')
         .select('*')
         .in('message_id', messageIds);
-      if (!error && data) setReactions(data);
+      if (!error && data) {
+        setReactions(data);
+        
+        // Fetch profiles for ALL users who have reactions, not just message senders
+        const reactionUserIds = [...new Set(data.map(reaction => reaction.user_id))];
+        const missingUserIds = reactionUserIds.filter(userId => !userProfiles[userId]);
+        if (missingUserIds.length > 0) {
+          console.log('Fetching profiles for reaction users:', missingUserIds);
+          await fetchUserProfiles(missingUserIds);
+        }
+      }
     };
     fetchReactions();
-  }, [messages]);
+  }, [messages, userProfiles]);
 
   // Real-time subscription for reactions
   useEffect(() => {
@@ -253,6 +263,10 @@ const ChatView: React.FC<ChatViewProps> = ({ groupId, groupName, onBack }) => {
         setReactions(prev => {
           if (payload.eventType === 'INSERT') {
             const newR = payload.new as MessageReaction;
+            // Fetch profile for new reaction user if not already loaded
+            if (!userProfiles[newR.user_id]) {
+              fetchUserProfiles([newR.user_id]);
+            }
             return [
               ...prev.filter(r => !(r.message_id === newR.message_id && r.user_id === newR.user_id)),
               newR
@@ -269,7 +283,7 @@ const ChatView: React.FC<ChatViewProps> = ({ groupId, groupName, onBack }) => {
       })
       .subscribe();
     return () => { supabase.removeChannel(channel); };
-  }, []);
+  }, [userProfiles]);
 
   // Reaction handler
   const handleReact = async (messageId: string, emoji: string | null) => {
@@ -371,6 +385,7 @@ const ChatView: React.FC<ChatViewProps> = ({ groupId, groupName, onBack }) => {
                           onReact={emoji => handleReact(message.id, emoji)}
                           open={pickerOpenId === message.id}
                           onOpenChange={open => setPickerOpenId(open ? message.id : null)}
+                          userProfiles={userProfiles}
                         />
                       </div>
                     </div>

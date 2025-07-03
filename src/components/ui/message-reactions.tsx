@@ -20,6 +20,7 @@ export interface MessageReactionsProps {
   emojiOptions?: string[];
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  userProfiles?: Record<string, string>; // Add user profiles prop
 }
 
 export const MessageReactions: React.FC<MessageReactionsProps> = ({
@@ -30,7 +31,11 @@ export const MessageReactions: React.FC<MessageReactionsProps> = ({
   emojiOptions = DEFAULT_EMOJIS,
   open,
   onOpenChange,
+  userProfiles = {},
 }) => {
+  const [longPressEmoji, setLongPressEmoji] = useState<string | null>(null);
+  const longPressTimerRef = useRef<NodeJS.Timeout | null>(null);
+
   // Group reactions by emoji
   const grouped = reactions.reduce<Record<string, MessageReaction[]>>((acc, r) => {
     if (!acc[r.emoji]) acc[r.emoji] = [];
@@ -43,24 +48,81 @@ export const MessageReactions: React.FC<MessageReactionsProps> = ({
   // Only show emojis that have at least one reaction
   const displayedEmojis = Object.keys(grouped);
 
+  const handleLongPressStart = (emoji: string) => {
+    console.log('Long press start for emoji:', emoji); // Debug
+    longPressTimerRef.current = setTimeout(() => {
+      console.log('Long press triggered for emoji:', emoji); // Debug
+      setLongPressEmoji(emoji);
+    }, 500);
+  };
+
+  const handleLongPressEnd = () => {
+    console.log('Long press end'); // Debug
+    if (longPressTimerRef.current) {
+      clearTimeout(longPressTimerRef.current);
+      longPressTimerRef.current = null;
+    }
+  };
+
+  const handleClick = (emoji: string, reacted: boolean) => {
+    console.log('Click for emoji:', emoji); // Debug
+    // Clear any pending long press
+    handleLongPressEnd();
+    // Handle the click
+    onReact(reacted ? null : emoji);
+  };
+
   return (
     <div className="mt-1 select-none">
       <div className="flex gap-1">
         {displayedEmojis.map(emoji => {
           const count = grouped[emoji].length;
           const reacted = userReaction?.emoji === emoji;
+          
           return (
-            <Button
-              key={emoji}
-              size="sm"
-              variant={reacted ? 'default' : 'ghost'}
-              className={`px-2 py-1 rounded-full text-lg flex items-center gap-1 ${reacted ? 'border-2 border-alike-teal' : ''}`}
-              onClick={() => onReact(reacted ? null : emoji)}
-              aria-label={reacted ? `Remove ${emoji} reaction` : `React with ${emoji}`}
-            >
-              <span>{emoji}</span>
-              <span className="text-xs font-semibold">{count}</span>
-            </Button>
+            <div key={emoji} className="relative">
+              <Popover open={longPressEmoji === emoji} onOpenChange={(open) => !open && setLongPressEmoji(null)}>
+                <PopoverTrigger asChild>
+                  <Button
+                    size="sm"
+                    variant={reacted ? 'default' : 'ghost'}
+                    className={`px-2 py-1 rounded-full text-lg flex items-center gap-1 ${reacted ? 'border-2 border-alike-teal' : ''}`}
+                    onClick={() => handleClick(emoji, reacted)}
+                    onMouseDown={() => handleLongPressStart(emoji)}
+                    onMouseUp={handleLongPressEnd}
+                    onMouseLeave={handleLongPressEnd}
+                    onTouchStart={() => handleLongPressStart(emoji)}
+                    onTouchEnd={handleLongPressEnd}
+                    aria-label={reacted ? `Remove ${emoji} reaction` : `React with ${emoji}`}
+                  >
+                    <span>{emoji}</span>
+                    <span className="text-xs font-semibold">{count}</span>
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent 
+                  align="center" 
+                  className="p-2 w-auto max-w-xs"
+                  side="top"
+                >
+                  <div className="space-y-1">
+                    <p className="text-xs font-medium text-muted-foreground mb-2">
+                      {emoji} reactions:
+                    </p>
+                    {grouped[emoji]?.map((reaction) => {
+                      const userName = userProfiles[reaction.user_id] || 'Unknown User';
+                      if (!userProfiles[reaction.user_id]) {
+                        console.log('Missing user profile for ID:', reaction.user_id, 'Available profiles:', Object.keys(userProfiles));
+                      }
+                      return (
+                        <div key={reaction.id} className="text-sm">
+                          {userName}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </PopoverContent>
+              </Popover>
+            </div>
           );
         })}
         <Popover open={open} onOpenChange={onOpenChange}>
