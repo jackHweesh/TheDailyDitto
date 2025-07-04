@@ -6,7 +6,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/components/ui/use-toast';
 import { useNavigate } from 'react-router-dom';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
-import { ArrowLeft, Star } from 'lucide-react';
+import { ArrowLeft, Star, XCircle } from 'lucide-react';
 
 interface GroupMembersPageProps {
   groupId: string;
@@ -40,6 +40,11 @@ const GroupMembersPage: React.FC<GroupMembersPageProps> = ({ groupId, groupName,
   const [starLoading, setStarLoading] = useState<string | null>(null);
   const isFriendsGroup = groupName === 'Friends';
   const [friendsGroupId, setFriendsGroupId] = useState<string | null>(null);
+  
+  // Kick functionality state
+  const [showKickConfirmation, setShowKickConfirmation] = useState(false);
+  const [memberToKick, setMemberToKick] = useState<Member | null>(null);
+  const [isKicking, setIsKicking] = useState(false);
 
   useEffect(() => {
     const fetchFriendsGroupId = async () => {
@@ -210,12 +215,7 @@ const GroupMembersPage: React.FC<GroupMembersPageProps> = ({ groupId, groupName,
         setMembers(activeMembers);
         setPendingMembers(pending);
         // 7. Check if current user is owner
-        const { data: groupData }: { data: { owner_id: string } | null } = await supabase
-          .from('groups')
-          .select('owner_id')
-          .eq('id', groupId)
-          .single();
-        const isUserOwner = groupData && user && groupData.owner_id === user.id;
+        const isUserOwner = membership && membership.status === 'owner';
         setIsOwner(isUserOwner);
         // Fetch friends for the current user
         const { data: friendsData }: { data: { friend_id: string }[] | null } = await supabase
@@ -435,6 +435,45 @@ const GroupMembersPage: React.FC<GroupMembersPageProps> = ({ groupId, groupName,
     }
   };
 
+  const handleKickMember = async () => {
+    if (!memberToKick || !user) return;
+    setIsKicking(true);
+    setShowKickConfirmation(false);
+    try {
+      // Remove the member from the group
+      const { error: kickError } = await supabase
+        .from('group_members')
+        .delete()
+        .eq('group_id', groupId)
+        .eq('user_id', memberToKick.id);
+      
+      if (kickError) throw kickError;
+
+      toast({
+        title: "Member removed",
+        description: `${memberToKick.name} has been removed from the group`,
+      });
+
+      // Refresh the members list
+      const event = new Event('refresh-members');
+      window.dispatchEvent(event);
+    } catch (error: any) {
+      toast({
+        title: "Error removing member",
+        description: error.message || "Could not remove the member",
+        variant: "destructive"
+      });
+    } finally {
+      setIsKicking(false);
+      setMemberToKick(null);
+    }
+  };
+
+  const openKickConfirmation = (member: Member) => {
+    setMemberToKick(member);
+    setShowKickConfirmation(true);
+  };
+
   // Listen for refresh event
   useEffect(() => {
     const handler = () => {
@@ -482,7 +521,22 @@ const GroupMembersPage: React.FC<GroupMembersPageProps> = ({ groupId, groupName,
               <ul className="divide-y">
                 {[...members].sort((a, b) => b.alike - a.alike).map((m) => (
                   <li key={m.id} className="py-3 flex items-center justify-between">
-                    <span className="font-medium text-alike-navy">
+                    <span className="font-medium text-alike-navy flex items-center gap-2">
+                      {/* Kick button - only show for group owners on non-Friends groups */}
+                      {isOwner && !isFriendsGroup && m.id !== user?.id && (
+                        <button
+                          onClick={() => openKickConfirmation(m)}
+                          title="Remove member from group"
+                          style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
+                        >
+                          <XCircle
+                            size={20}
+                            color="#ef4444"
+                            strokeWidth={2}
+                            style={{ transition: 'color 0.2s' }}
+                          />
+                        </button>
+                      )}
                       {m.name}
                       {m.status === 'owner' && (
                         isFriendsGroup
@@ -549,6 +603,33 @@ const GroupMembersPage: React.FC<GroupMembersPageProps> = ({ groupId, groupName,
                     disabled={isLeavingGroup}
                   >
                     {isLeavingGroup ? "Leaving..." : "Leave Group"}
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+            
+            {/* Kick confirmation dialog */}
+            <Dialog open={showKickConfirmation} onOpenChange={setShowKickConfirmation}>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Remove Member</DialogTitle>
+                  <DialogDescription>
+                    Are you sure you want to remove {memberToKick?.name} from "{groupName}"? This action cannot be undone.
+                  </DialogDescription>
+                </DialogHeader>
+                <DialogFooter>
+                  <Button 
+                    variant="outline" 
+                    onClick={() => setShowKickConfirmation(false)}
+                  >
+                    Cancel
+                  </Button>
+                  <Button 
+                    variant="destructive"
+                    onClick={handleKickMember}
+                    disabled={isKicking}
+                  >
+                    {isKicking ? "Removing..." : "Remove Member"}
                   </Button>
                 </DialogFooter>
               </DialogContent>
