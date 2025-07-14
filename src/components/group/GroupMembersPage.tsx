@@ -521,7 +521,7 @@ const GroupMembersPage: React.FC<GroupMembersPageProps> = ({ groupId, groupName,
               <ul className="divide-y">
                 {[...members].sort((a, b) => b.alike - a.alike).map((m) => (
                   <li key={m.id} className="py-3 flex items-center justify-between">
-                    <span className="font-medium text-alike-navy flex items-center gap-2">
+                    <span className="font-medium text-alike-navy flex flex-col items-start gap-1">
                       {/* Kick button - only show for group owners on non-Friends groups */}
                       {isOwner && !isFriendsGroup && m.id !== user?.id && (
                         <button
@@ -537,13 +537,14 @@ const GroupMembersPage: React.FC<GroupMembersPageProps> = ({ groupId, groupName,
                           />
                         </button>
                       )}
-                      {m.name}
-                      {m.status === 'owner' && (
-                        isFriendsGroup
-                          ? <Star size={18} color="#4FD1C5" fill="#4FD1C5" className="inline ml-1 align-text-bottom" />
-                          : ' (Owner)'
-                      )}
-                      <br />
+                      <span className="flex items-center gap-2">
+                        {m.name}
+                        {m.status === 'owner' && (
+                          isFriendsGroup
+                            ? <Star size={18} color="#4FD1C5" fill="#4FD1C5" className="inline ml-1 align-text-bottom" />
+                            : ' (Owner)'
+                        )}
+                      </span>
                       <span className="text-xs text-muted-foreground font-normal" style={{ fontSize: '0.85em' }}>
                         {m.totalCount > 0 ? `${m.alikeCount}/${m.totalCount} questions` : '0/0 questions'}
                       </span>

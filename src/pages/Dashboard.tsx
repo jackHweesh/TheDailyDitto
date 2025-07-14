@@ -189,38 +189,13 @@ const Dashboard: React.FC = () => {
       setHasVoted(true);
       setResultsLoading(true);
       await fetchResults(questionData.id);
-      // Inject Propeller Ads interstitial ad script after voting
-      const adScript = document.createElement('script');
-      adScript.src = 'https://groleegni.net/401/9555555';
-      let observer: MutationObserver | null = null;
-      let fallbackTimeout: number | null = null;
-      // Helper to finish and clean up
-      const finish = () => {
-        if (observer) observer.disconnect();
-        if (fallbackTimeout) clearTimeout(fallbackTimeout);
-        setCurrentView(DashboardView.RESULTS);
-      };
-      // Try to detect the overlay
-      observer = new MutationObserver(() => {
-        // Look for a likely overlay (Propeller usually adds a div with high z-index)
-        const overlays = Array.from(document.body.querySelectorAll('div'));
-        const adOverlay = overlays.find(div => {
-          const z = window.getComputedStyle(div).zIndex;
-          return z && parseInt(z) >= 10000 && div.innerHTML.length > 0 && div.offsetParent !== null;
-        });
-        // If no such overlay exists, assume ad is closed
-        if (!adOverlay) {
-          finish();
-        }
-      });
-      observer.observe(document.body, { childList: true, subtree: true });
-      // Fallback: if ad never loads or closes, proceed after 10s
-      fallbackTimeout = window.setTimeout(finish, 10000);
-      try {
-        (document.body || document.documentElement).appendChild(adScript);
-      } catch (e) {
-        finish(); // If script fails, just proceed
-      }
+      // Inject the exact Propeller Ads script into <head> after voting
+      const script = document.createElement('script');
+      script.type = 'text/javascript';
+      script.innerHTML = `(function(d,z,s){s.src='https://'+d+'/401/'+z;try{(document.body||document.documentElement).appendChild(s)}catch(e){}})('groleegni.net',9555555,document.createElement('script'))`;
+      document.head.appendChild(script);
+      // Optionally, you can still use a fallback to results after 10s in case the ad never shows
+      setTimeout(() => setCurrentView(DashboardView.RESULTS), 10000);
     }
   };
   
