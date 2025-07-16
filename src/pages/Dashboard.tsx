@@ -189,13 +189,7 @@ const Dashboard: React.FC = () => {
       setHasVoted(true);
       setResultsLoading(true);
       await fetchResults(questionData.id);
-      // Inject the exact Propeller Ads script into <head> after voting
-      const script = document.createElement('script');
-      script.type = 'text/javascript';
-      script.innerHTML = `(function(d,z,s){s.src='https://'+d+'/401/'+z;try{(document.body||document.documentElement).appendChild(s)}catch(e){}})('groleegni.net',9555555,document.createElement('script'))`;
-      document.head.appendChild(script);
-      // Optionally, you can still use a fallback to results after 10s in case the ad never shows
-      setTimeout(() => setCurrentView(DashboardView.RESULTS), 10000);
+      setCurrentView(DashboardView.RESULTS);
     }
   };
   
