@@ -32,9 +32,7 @@ const QuestionOfDay: React.FC<QuestionProps> = ({ question, options, questionId,
       });
       return;
     }
-    
     setIsLoading(true);
-    
     try {
       const fingerprint = await getBrowserFingerprint();
       const { error } = await supabase
@@ -45,7 +43,6 @@ const QuestionOfDay: React.FC<QuestionProps> = ({ question, options, questionId,
           selected_option: selectedOption,
           browser_fingerprint: !user ? fingerprint : null
         });
-      
       if (error) {
         if (error.code === '23505') { // Unique violation
           toast({
@@ -61,6 +58,7 @@ const QuestionOfDay: React.FC<QuestionProps> = ({ question, options, questionId,
           title: "Vote submitted",
           description: "Your vote has been recorded. Check out the results!",
         });
+        // Show results immediately - the ad will be triggered by the button click
         onVoteSubmit(selectedOption);
       }
     } catch (error: any) {
@@ -95,7 +93,7 @@ const QuestionOfDay: React.FC<QuestionProps> = ({ question, options, questionId,
         <CardFooter>
           <Button 
             type="submit" 
-            className="w-full bg-alike-teal hover:bg-alike-teal/90 text-white rounded-md h-12"
+            className="w-full bg-alike-teal hover:bg-alike-teal/90 text-white rounded-md h-12 show-interstitial"
             disabled={isLoading}
           >
             {isLoading ? "Submitting..." : "Submit"}
