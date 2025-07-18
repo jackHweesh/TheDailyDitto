@@ -16,6 +16,8 @@ import { Capacitor } from '@capacitor/core';
 import Header from '@/components/Header';
 import { subDays, isSameDay } from 'date-fns';
 import { useStreak } from '@/hooks/useStreak';
+import { useUnreadCount } from '@/hooks/useUnreadCount';
+import { useExoClickAd } from '@/hooks/useExoClickAd';
 
 // Predefined colors for results visualization
 const RESULT_COLORS = [
@@ -49,6 +51,7 @@ const Dashboard: React.FC = () => {
   const location = useLocation();
   const { groupId } = useParams();
   const streak = useStreak();
+  const { showAd } = useExoClickAd();
   
   const latestQuestionId = useRef<string | null>(null);
   const isNative = Capacitor.isNativePlatform();
@@ -188,6 +191,15 @@ const Dashboard: React.FC = () => {
     if (questionData) {
       setHasVoted(true);
       setResultsLoading(true);
+      
+      try {
+        // Show the interstitial ad before displaying results
+        await showAd();
+      } catch (error) {
+        console.error('Error showing ad:', error);
+        // Continue to results even if ad fails
+      }
+      
       await fetchResults(questionData.id);
       setCurrentView(DashboardView.RESULTS);
     }
