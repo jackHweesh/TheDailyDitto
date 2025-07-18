@@ -313,20 +313,7 @@ const Dashboard: React.FC = () => {
       
       {/* ExoClick Interstitial Ad Overlay */}
       {showAd && (
-        <div style={{
-          position: 'fixed',
-          zIndex: 10000,
-          top: 0,
-          left: 0,
-          width: '100vw',
-          height: '100vh',
-          background: 'rgba(0,0,0,0.6)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-        }}>
-          <ExoClickInterstitial />
-        </div>
+        <ExoClickInterstitial />
       )}
     </div>
   );
