@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card';
 import { useToast } from '@/components/ui/use-toast';
@@ -7,7 +7,6 @@ import { Label } from '@/components/ui/label';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/context/AuthContext';
 import { getBrowserFingerprint } from '@/utils/fingerprint';
-import { useExoClickAd } from '@/hooks/useExoClickAd';
 
 interface QuestionProps {
   question: string;
@@ -21,13 +20,7 @@ const QuestionOfDay: React.FC<QuestionProps> = ({ question, options, questionId,
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
   const { user } = useAuth();
-  const { preloadAd } = useExoClickAd();
   const currentDate = new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
-
-  // Preload the ad when component mounts
-  useEffect(() => {
-    preloadAd();
-  }, [preloadAd]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
