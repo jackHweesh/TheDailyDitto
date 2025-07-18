@@ -194,18 +194,15 @@ const Dashboard: React.FC = () => {
 
       setShowAd(true);
 
+      // Wait for the ad to complete (handled by ExoClickInterstitial component)
       await new Promise<void>((resolve) => {
         const handler = () => {
+          console.log('Dashboard: Ad completed, proceeding to results');
           setShowAd(false);
           window.removeEventListener('exoclickAdDisplayed', handler);
           resolve();
         };
         window.addEventListener('exoclickAdDisplayed', handler);
-        setTimeout(() => {
-          setShowAd(false);
-          window.removeEventListener('exoclickAdDisplayed', handler);
-          resolve();
-        }, 10000); // 10s fallback
       });
 
       await fetchResults(questionData.id);
