@@ -19,6 +19,23 @@
 
   <body>
     <div id="root"></div>
+    
+    <!-- ExoClick Interstitial Ad Container (Hidden by default) -->
+    <div id="exoclick-interstitial-container" style="display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 10002; background: rgba(0,0,0,0.8);">
+      <ins class="eas6a97888e35" data-zoneid="5678778"></ins>
+    </div>
+    
+    <!-- ExoClick Script -->
+    <script async type="application/javascript" src="https://a.pemsrv.com/ad-provider.js"></script>
+    
+    <!-- ExoClick Event Listener -->
+    <script type="application/javascript">
+      document.addEventListener('creativeDisplayed-5678778', function() {
+        console.log('ExoClick interstitial ad displayed - original HTML listener');
+        window.dispatchEvent(new CustomEvent('exoclickAdDisplayed'));
+      }, false);
+    </script>
+    
     <!-- IMPORTANT: DO NOT REMOVE THIS SCRIPT TAG OR THIS VERY COMMENT! -->
     <script src="https://cdn.gpteng.co/gptengineer.js" type="module"></script>
     <script type="module" src="/src/main.tsx"></script>
