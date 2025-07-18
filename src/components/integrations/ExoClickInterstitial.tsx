@@ -53,6 +53,17 @@ export const ExoClickInterstitial = ({ onAdDisplayed }: { onAdDisplayed?: () => 
           console.log('✅ No obvious ad blocker detected');
         }
 
+        // Step 1.5: Check if this might be a zone configuration issue
+        console.log('🔍 Checking zone configuration...');
+        console.log('Zone ID:', ZONE_ID);
+        console.log('Current domain:', window.location.hostname);
+        console.log('Is localhost/development:', window.location.hostname.includes('localhost') || window.location.hostname.includes('127.0.0.1'));
+        
+        // If we're on localhost, ExoClick might not serve ads
+        if (window.location.hostname.includes('localhost') || window.location.hostname.includes('127.0.0.1')) {
+          console.warn('⚠️ Testing on localhost - ExoClick may not serve ads on localhost');
+        }
+
         // Step 2: Get the existing HTML container
         adContainer = document.getElementById('exoclick-interstitial-container');
         if (!adContainer) {
@@ -111,6 +122,16 @@ export const ExoClickInterstitial = ({ onAdDisplayed }: { onAdDisplayed?: () => 
         // @ts-ignore
         (window.AdProvider = window.AdProvider || []).push({"serve": {}});
         console.log('✅ ExoClick ad triggered successfully');
+
+        // Step 8.5: Try alternative trigger method if first one doesn't work
+        setTimeout(() => {
+          if (adElement && adElement.children.length === 0) {
+            console.log('🔄 Trying alternative trigger method...');
+            // @ts-ignore
+            window.AdProvider.push({ serve: { zoneid: ZONE_ID } });
+            console.log('✅ Alternative trigger method executed');
+          }
+        }, 3000);
 
         // Step 9: Set up continuous monitoring of ad element
         console.log('🔍 Starting ad content monitoring...');
@@ -186,7 +207,11 @@ export const ExoClickInterstitial = ({ onAdDisplayed }: { onAdDisplayed?: () => 
         });
 
         if (childrenCount === 0) {
-          console.log('🚫 DIAGNOSIS: Ad blocker likely blocking content (no children)');
+          console.log('🚫 DIAGNOSIS: No ad content loaded - possible causes:');
+          console.log('   • ExoClick not serving ads to this zone/domain');
+          console.log('   • Zone configuration issue');
+          console.log('   • Testing on localhost (ExoClick may not serve ads locally)');
+          console.log('   • Ad blocker (less likely since you tested in incognito)');
         } else if (innerHTMLLength < 100) {
           console.log('🚫 DIAGNOSIS: Ad content not loading properly (minimal HTML)');
         } else if (display === 'none') {
