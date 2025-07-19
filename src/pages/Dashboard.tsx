@@ -193,6 +193,7 @@ const Dashboard: React.FC = () => {
       setResultsLoading(true);
 
       // Show the ad overlay
+      console.log('Dashboard: Setting showAd to true');
       setShowAd(true);
 
       // Wait for the ad to complete (handled by ExoClickInterstitial component)
@@ -314,7 +315,10 @@ const Dashboard: React.FC = () => {
       
       {/* ExoClick Interstitial Ad Overlay */}
       {showAd && (
-        <ExoClickInterstitial />
+        <>
+          {console.log('Dashboard: Rendering ExoClickInterstitial component')}
+          <ExoClickInterstitial />
+        </>
       )}
     </div>
   );
