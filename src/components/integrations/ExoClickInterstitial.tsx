@@ -145,6 +145,12 @@ export const ExoClickInterstitial = ({ onAdDisplayed }: { onAdDisplayed?: () => 
 
         console.log('Ad container is visible and ready for ExoClick to trigger ad');
         
+        // CRITICAL: Trigger the ad using AdProvider.push()
+        console.log('🎯 Triggering ExoClick ad with AdProvider.push()...');
+        // @ts-ignore
+        (window.AdProvider = window.AdProvider || []).push({"serve": {}});
+        console.log('✅ ExoClick ad triggered successfully');
+        
         // Monitor the ad container for content changes
         const observer = new MutationObserver((mutations) => {
           mutations.forEach((mutation) => {
