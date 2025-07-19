@@ -28,13 +28,7 @@
     <!-- ExoClick Script -->
     <script async type="application/javascript" src="https://a.pemsrv.com/ad-provider.js"></script>
     
-    <!-- ExoClick Event Listener -->
-    <script type="application/javascript">
-      document.addEventListener('creativeDisplayed-5678778', function() {
-        console.log('ExoClick interstitial ad displayed - original HTML listener');
-        window.dispatchEvent(new CustomEvent('exoclickAdDisplayed'));
-      }, false);
-    </script>
+    <!-- ExoClick Event Listener - Handled by React component -->
     
     <!-- IMPORTANT: DO NOT REMOVE THIS SCRIPT TAG OR THIS VERY COMMENT! -->
     <script src="https://cdn.gpteng.co/gptengineer.js" type="module"></script>
