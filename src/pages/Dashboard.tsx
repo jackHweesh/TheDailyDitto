@@ -192,6 +192,9 @@ const Dashboard: React.FC = () => {
       setHasVoted(true);
       setResultsLoading(true);
 
+      // Show the ad overlay
+      setShowAd(true);
+
       // Wait for the ad to complete (handled by ExoClickInterstitial component)
       await new Promise<void>((resolve) => {
         const handler = () => {
