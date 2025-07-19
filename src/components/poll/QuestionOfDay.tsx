@@ -93,7 +93,7 @@ const QuestionOfDay: React.FC<QuestionProps> = ({ question, options, questionId,
         <CardFooter>
           <Button 
             type="submit" 
-            className="w-full bg-alike-teal hover:bg-alike-teal/90 text-white rounded-md h-12 show-interstitial"
+            className="w-full bg-alike-teal hover:bg-alike-teal/90 text-white rounded-md h-12"
             disabled={isLoading}
           >
             {isLoading ? "Submitting..." : "Submit"}
