@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
 
 const ZONE_ID = '5678778';
+const TRIGGER_CLASS = 'show-interstitial';
 
 export const ExoClickInterstitial = ({ onAdDisplayed }: { onAdDisplayed?: () => void }) => {
   const adRef = useRef<HTMLDivElement>(null);
@@ -19,11 +20,12 @@ export const ExoClickInterstitial = ({ onAdDisplayed }: { onAdDisplayed?: () => 
     let adContainer: HTMLElement | null = null;
     let adElement: HTMLElement | null = null;
     let checkInterval: NodeJS.Timeout;
+    let isAdTriggered = false;
 
-    const showAd = async () => {
+    const setupExoClick = async () => {
       try {
-        console.log('=== EXOCLICK DEBUGGING START ===');
-        console.log('Showing ExoClick ad using HTML container...');
+        console.log('=== EXOCLICK TRIGGER CLASS SETUP ===');
+        console.log('Setting up ExoClick with trigger class:', TRIGGER_CLASS);
 
         // Step 1: Check for ad blocker
         console.log('🔍 Checking for ad blocker...');
@@ -53,18 +55,18 @@ export const ExoClickInterstitial = ({ onAdDisplayed }: { onAdDisplayed?: () => 
           console.log('✅ No obvious ad blocker detected');
         }
 
-        // Step 1.5: Check if this might be a zone configuration issue
+        // Step 2: Check zone configuration
         console.log('🔍 Checking zone configuration...');
         console.log('Zone ID:', ZONE_ID);
+        console.log('Trigger Class:', TRIGGER_CLASS);
         console.log('Current domain:', window.location.hostname);
         console.log('Is localhost/development:', window.location.hostname.includes('localhost') || window.location.hostname.includes('127.0.0.1'));
         
-        // If we're on localhost, ExoClick might not serve ads
         if (window.location.hostname.includes('localhost') || window.location.hostname.includes('127.0.0.1')) {
           console.warn('⚠️ Testing on localhost - ExoClick may not serve ads on localhost');
         }
 
-        // Step 2: Get the existing HTML container
+        // Step 3: Get the existing HTML container
         adContainer = document.getElementById('exoclick-interstitial-container');
         if (!adContainer) {
           console.error('❌ ExoClick container not found in HTML');
@@ -72,19 +74,13 @@ export const ExoClickInterstitial = ({ onAdDisplayed }: { onAdDisplayed?: () => 
         }
         console.log('✅ ExoClick container found');
 
-        // Step 3: Get the ad element
+        // Step 4: Get the ad element
         adElement = adContainer.querySelector('ins.eas6a97888e35');
         if (!adElement) {
           console.error('❌ Ad element not found in container');
           throw new Error('Ad element not found');
         }
         console.log('✅ Ad element found:', adElement);
-
-        // Step 4: Show the container
-        adContainer.style.display = 'flex';
-        adContainer.style.alignItems = 'center';
-        adContainer.style.justifyContent = 'center';
-        console.log('✅ Ad container made visible');
 
         // Step 5: Check if ExoClick script is loaded
         const scriptElement = document.querySelector('script[src="https://a.pemsrv.com/ad-provider.js"]');
@@ -113,30 +109,31 @@ export const ExoClickInterstitial = ({ onAdDisplayed }: { onAdDisplayed?: () => 
           throw new Error('AdProvider not available after 10 seconds');
         }
 
-        // Step 7: Wait a bit for everything to be ready
-        await new Promise(resolve => setTimeout(resolve, 500));
-
-        console.log('Triggering ExoClick ad with original pattern...');
+        // Step 7: Set up click event listener for trigger class
+        console.log('🎯 Setting up click listener for class:', TRIGGER_CLASS);
         
-        // Step 8: Trigger the ad using the original pattern
-        // @ts-ignore
-        (window.AdProvider = window.AdProvider || []).push({"serve": {}});
-        console.log('✅ ExoClick ad triggered successfully');
-
-        // Step 8.5: Try alternative trigger method if first one doesn't work
-        setTimeout(() => {
-          if (adElement && adElement.children.length === 0) {
-            console.log('🔄 Trying alternative trigger method...');
-            // @ts-ignore
-            window.AdProvider.push({ serve: { zoneid: ZONE_ID } });
-            console.log('✅ Alternative trigger method executed');
+        const handleTriggerClick = (event: Event) => {
+          if (isAdTriggered) {
+            console.log('⚠️ Ad already triggered, ignoring click');
+            return;
           }
-        }, 3000);
 
-        // Step 9: Set up continuous monitoring of ad element
+          const target = event.target as HTMLElement;
+          if (target.classList.contains(TRIGGER_CLASS) || target.closest(`.${TRIGGER_CLASS}`)) {
+            console.log('🎯 Trigger class clicked, showing ad...');
+            isAdTriggered = true;
+            showAd();
+          }
+        };
+
+        // Listen for clicks on elements with the trigger class
+        document.addEventListener('click', handleTriggerClick);
+        console.log('✅ Click listener added for class:', TRIGGER_CLASS);
+
+        // Step 8: Set up continuous monitoring of ad element
         console.log('🔍 Starting ad content monitoring...');
         checkInterval = setInterval(() => {
-          if (adElement) {
+          if (adElement && isAdTriggered) {
             const childrenCount = adElement.children.length;
             const innerHTMLLength = adElement.innerHTML.length;
             const display = window.getComputedStyle(adElement).display;
@@ -166,6 +163,40 @@ export const ExoClickInterstitial = ({ onAdDisplayed }: { onAdDisplayed?: () => 
           }
         }, 1000); // Check every second
 
+        // Cleanup function for this setup
+        return () => {
+          document.removeEventListener('click', handleTriggerClick);
+          clearInterval(checkInterval);
+        };
+
+      } catch (error) {
+        console.error('❌ Error setting up ExoClick:', error);
+        if (onAdDisplayed) onAdDisplayed();
+      }
+    };
+
+    const showAd = async () => {
+      try {
+        console.log('🎬 Showing ExoClick ad...');
+
+        // Show the container
+        if (adContainer) {
+          adContainer.style.display = 'flex';
+          adContainer.style.alignItems = 'center';
+          adContainer.style.justifyContent = 'center';
+          console.log('✅ Ad container made visible');
+        }
+
+        // Wait a bit for everything to be ready
+        await new Promise(resolve => setTimeout(resolve, 500));
+
+        console.log('Triggering ExoClick ad with original pattern...');
+        
+        // Trigger the ad using the original pattern
+        // @ts-ignore
+        (window.AdProvider = window.AdProvider || []).push({"serve": {}});
+        console.log('✅ ExoClick ad triggered successfully');
+
       } catch (error) {
         console.error('❌ Error showing ExoClick ad:', error);
         if (onAdDisplayed) onAdDisplayed();
@@ -177,7 +208,6 @@ export const ExoClickInterstitial = ({ onAdDisplayed }: { onAdDisplayed?: () => 
     const handleAdDisplayed = () => {
       console.log('🎉 ExoClick interstitial ad displayed successfully');
       clearTimeout(timeoutId);
-      clearInterval(checkInterval);
       if (onAdDisplayed) onAdDisplayed();
       window.dispatchEvent(new CustomEvent('exoclickAdDisplayed'));
     };
@@ -223,20 +253,25 @@ export const ExoClickInterstitial = ({ onAdDisplayed }: { onAdDisplayed?: () => 
         console.log('🚫 DIAGNOSIS: Ad element not found');
       }
 
-      clearInterval(checkInterval);
       if (onAdDisplayed) onAdDisplayed();
       window.dispatchEvent(new CustomEvent('exoclickAdDisplayed'));
     }, 15000); // 15 second timeout
 
-    // Start the ad display process
-    showAd();
+    let setupCleanup: (() => void) | null = null;
+
+    // Start the setup process
+    setupExoClick().then(cleanup => {
+      setupCleanup = cleanup;
+    });
 
     // Cleanup function
     return () => {
       console.log('🧹 Cleaning up ExoClickInterstitial component');
       document.removeEventListener(eventName, handleAdDisplayed);
       clearTimeout(timeoutId);
-      clearInterval(checkInterval);
+      
+      // Clean up the setup
+      if (setupCleanup) setupCleanup();
       
       // Hide the ad container
       if (adContainer) {
