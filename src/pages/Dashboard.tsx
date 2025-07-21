@@ -17,7 +17,6 @@ import Header from '@/components/Header';
 import { subDays, isSameDay } from 'date-fns';
 import { useStreak } from '@/hooks/useStreak';
 import { useUnreadCount } from '@/hooks/useUnreadCount';
-import { ExoClickInterstitial } from '@/components/integrations/ExoClickInterstitial';
 
 // Predefined colors for results visualization
 const RESULT_COLORS = [
@@ -44,8 +43,6 @@ const Dashboard: React.FC = () => {
   const [resultsLoading, setResultsLoading] = useState(false);
   const [isFirstLoad, setIsFirstLoad] = useState(true);
   const [isVoteStatusLoading, setIsVoteStatusLoading] = useState(true);
-  const [showAd, setShowAd] = useState(false);
-  const hiddenAdTriggerRef = useRef<HTMLButtonElement>(null);
   
   const { toast } = useToast();
   const { user, signOut } = useAuth();
@@ -56,6 +53,7 @@ const Dashboard: React.FC = () => {
   
   const latestQuestionId = useRef<string | null>(null);
   const isNative = Capacitor.isNativePlatform();
+  const hiddenAdTriggerRef = useRef<HTMLButtonElement>(null);
 
   // Helper function to check if the user has voted
   const checkUserVote = async (questionId: string, userId: string | null, fingerprint: string) => {
@@ -193,26 +191,20 @@ const Dashboard: React.FC = () => {
       setHasVoted(true);
       setResultsLoading(true);
 
-      // Show the ad overlay
-      console.log('Dashboard: Setting showAd to true');
-      setShowAd(true);
-
-      // Programmatically click the hidden trigger for ExoClick
+      // Trigger ExoClick interstitial ad by clicking the hidden button
       setTimeout(() => {
         if (hiddenAdTriggerRef.current) {
           hiddenAdTriggerRef.current.click();
         }
       }, 100); // slight delay to ensure element is in DOM
 
-      // Wait for the ad to complete (handled by ExoClickInterstitial component)
+      // Wait for the ad to complete (creativeDisplayed event)
       await new Promise<void>((resolve) => {
         const handler = () => {
-          console.log('Dashboard: Ad completed, proceeding to results');
-          setShowAd(false);
-          window.removeEventListener('exoclickAdDisplayed', handler);
+          window.removeEventListener('creativeDisplayed-5678778', handler);
           resolve();
         };
-        window.addEventListener('exoclickAdDisplayed', handler);
+        window.addEventListener('creativeDisplayed-5678778', handler);
       });
 
       await fetchResults(questionData.id);
@@ -313,6 +305,16 @@ const Dashboard: React.FC = () => {
             </div>
           )}
         </div>
+        {/* Hidden button to trigger ExoClick interstitial ad */}
+        <button
+          ref={hiddenAdTriggerRef}
+          className="show-interstitial"
+          style={{ display: 'none' }}
+          tabIndex={-1}
+          aria-hidden="true"
+        >
+          Trigger Ad
+        </button>
       </main>
       {/* Footer */}
       <footer className="fixed-footer bg-white border-t w-full">
@@ -320,23 +322,6 @@ const Dashboard: React.FC = () => {
           <p className="text-sm text-muted-foreground">© {new Date().getFullYear()} TheDailyDitto. All rights reserved.</p>
         </div>
       </footer>
-      
-      {/* ExoClick Interstitial Ad Overlay */}
-      {showAd && (
-        <>
-          {console.log('Dashboard: Rendering ExoClickInterstitial component')}
-          <button
-            ref={hiddenAdTriggerRef}
-            className="show-interstitial"
-            style={{ display: 'none' }}
-            tabIndex={-1}
-            aria-hidden="true"
-          >
-            Trigger Ad
-          </button>
-          <ExoClickInterstitial />
-        </>
-      )}
     </div>
   );
 };
