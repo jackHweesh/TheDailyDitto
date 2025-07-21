@@ -45,6 +45,7 @@ const Dashboard: React.FC = () => {
   const [isFirstLoad, setIsFirstLoad] = useState(true);
   const [isVoteStatusLoading, setIsVoteStatusLoading] = useState(true);
   const [showAd, setShowAd] = useState(false);
+  const hiddenAdTriggerRef = useRef<HTMLButtonElement>(null);
   
   const { toast } = useToast();
   const { user, signOut } = useAuth();
@@ -196,6 +197,13 @@ const Dashboard: React.FC = () => {
       console.log('Dashboard: Setting showAd to true');
       setShowAd(true);
 
+      // Programmatically click the hidden trigger for ExoClick
+      setTimeout(() => {
+        if (hiddenAdTriggerRef.current) {
+          hiddenAdTriggerRef.current.click();
+        }
+      }, 100); // slight delay to ensure element is in DOM
+
       // Wait for the ad to complete (handled by ExoClickInterstitial component)
       await new Promise<void>((resolve) => {
         const handler = () => {
@@ -317,6 +325,15 @@ const Dashboard: React.FC = () => {
       {showAd && (
         <>
           {console.log('Dashboard: Rendering ExoClickInterstitial component')}
+          <button
+            ref={hiddenAdTriggerRef}
+            className="show-interstitial"
+            style={{ display: 'none' }}
+            tabIndex={-1}
+            aria-hidden="true"
+          >
+            Trigger Ad
+          </button>
           <ExoClickInterstitial />
         </>
       )}
