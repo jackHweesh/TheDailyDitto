@@ -190,27 +190,6 @@ const Dashboard: React.FC = () => {
     if (questionData) {
       setHasVoted(true);
       setResultsLoading(true);
-      // Show AdMaven interstitial ad
-      await new Promise((resolve) => {
-        // Remove any previous AdMaven script if present
-        const prevScript = document.getElementById('admaven-interstitial');
-        if (prevScript) prevScript.remove();
-        // Create AdMaven script
-        const script = document.createElement('script');
-        script.id = 'admaven-interstitial';
-        script.setAttribute('data-cfasync', 'false');
-        script.src = '//dcbbwymp1bhlf.cloudfront.net/?wbbcd=1201833';
-        // Fallback: show results after 10 seconds if ad doesn't fire
-        const timeout = setTimeout(resolve, 10000);
-        // Listen for AdMaven's ad close event (if available)
-        script.onload = () => {
-          // If AdMaven provides a callback/event, hook here. Otherwise, fallback to timeout.
-        };
-        // Insert script and wait
-        document.head.appendChild(script);
-        // If AdMaven provides a global callback/event, you can resolve() here.
-        // For now, rely on timeout fallback.
-      });
       await fetchResults(questionData.id);
       setCurrentView(DashboardView.RESULTS);
     }
