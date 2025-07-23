@@ -190,23 +190,27 @@ const Dashboard: React.FC = () => {
     if (questionData) {
       setHasVoted(true);
       setResultsLoading(true);
-
-      // Trigger ExoClick interstitial ad by clicking the hidden button
-      setTimeout(() => {
-        if (hiddenAdTriggerRef.current) {
-          hiddenAdTriggerRef.current.click();
-        }
-      }, 100); // slight delay to ensure element is in DOM
-
-      // Wait for the ad to complete (creativeDisplayed event)
-      await new Promise<void>((resolve) => {
-        const handler = () => {
-          window.removeEventListener('creativeDisplayed-5678778', handler);
-          resolve();
+      // Show AdMaven interstitial ad
+      await new Promise((resolve) => {
+        // Remove any previous AdMaven script if present
+        const prevScript = document.getElementById('admaven-interstitial');
+        if (prevScript) prevScript.remove();
+        // Create AdMaven script
+        const script = document.createElement('script');
+        script.id = 'admaven-interstitial';
+        script.setAttribute('data-cfasync', 'false');
+        script.src = '//dcbbwymp1bhlf.cloudfront.net/?wbbcd=1201833';
+        // Fallback: show results after 10 seconds if ad doesn't fire
+        const timeout = setTimeout(resolve, 10000);
+        // Listen for AdMaven's ad close event (if available)
+        script.onload = () => {
+          // If AdMaven provides a callback/event, hook here. Otherwise, fallback to timeout.
         };
-        window.addEventListener('creativeDisplayed-5678778', handler);
+        // Insert script and wait
+        document.head.appendChild(script);
+        // If AdMaven provides a global callback/event, you can resolve() here.
+        // For now, rely on timeout fallback.
       });
-
       await fetchResults(questionData.id);
       setCurrentView(DashboardView.RESULTS);
     }
@@ -306,15 +310,7 @@ const Dashboard: React.FC = () => {
           )}
         </div>
         {/* Hidden button to trigger ExoClick interstitial ad */}
-        <button
-          ref={hiddenAdTriggerRef}
-          className="show-interstitial"
-          style={{ display: 'none' }}
-          tabIndex={-1}
-          aria-hidden="true"
-        >
-          Trigger Ad
-        </button>
+        {/* ExoClick ad trigger button removed */}
       </main>
       {/* Footer */}
       <footer className="fixed-footer bg-white border-t w-full">
