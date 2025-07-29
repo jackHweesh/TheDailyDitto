@@ -288,8 +288,6 @@ const Dashboard: React.FC = () => {
             </div>
           )}
         </div>
-        {/* Hidden button to trigger ExoClick interstitial ad */}
-        {/* ExoClick ad trigger button removed */}
       </main>
       {/* Footer */}
       <footer className="fixed-footer bg-white border-t w-full">
