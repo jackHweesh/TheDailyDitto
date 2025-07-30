@@ -22,6 +22,7 @@ import FriendInvite from "./pages/FriendInvite";
 import GroupInvite from "./pages/GroupInvite";
 import { useEffect } from 'react';
 import { StatusBar, Style } from '@capacitor/status-bar';
+import GoogleAnalytics from './components/GoogleAnalytics';
 
 const queryClient = new QueryClient();
 
@@ -44,6 +45,7 @@ const App = () => {
           <Sonner />
           <div className={`app-container ${isNative ? 'native-app' : ''}`}>
             <BrowserRouter>
+              <GoogleAnalytics />
               <Routes>
                 <Route path="/reset-password" element={
                   <div className="min-h-screen bg-alike-lightgray flex flex-col">
