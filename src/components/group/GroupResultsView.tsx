@@ -1029,7 +1029,7 @@ const GroupResultsView: React.FC<GroupResultsViewProps> = ({
                     ) : (
                       <div className="space-y-4">
                         <p className="text-sm text-gray-600">
-                          Generate a unique invite link to share with friends. The link will be valid for 7 days.
+                          Generate a unique invite link to share with friends. The link will be valid for 6 months.
                         </p>
                         {groupInviteError && <div className="text-red-600 text-sm">{groupInviteError}</div>}
                         <DialogFooter>

@@ -23,8 +23,8 @@ BEGIN
         token_text := replace(token_text, '+', '-');
         token_text := substr(token_text, 1, 32);
         
-        -- Set expiration to 7 days from now
-        expires_at := NOW() + INTERVAL '7 days';
+        -- Set expiration to 6 months from now
+        expires_at := NOW() + INTERVAL '6 months';
         
         -- Insert invite record
         INSERT INTO group_invites (group_id, from_user_id, token, expires_at, status)

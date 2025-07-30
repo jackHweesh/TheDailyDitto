@@ -58,7 +58,7 @@ serve(async (req) => {
 
     // Generate a unique token
     const token = generateToken(48)
-    const expires_at = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString() // 7 days
+    const expires_at = new Date(Date.now() + 180 * 24 * 60 * 60 * 1000).toISOString() // 6 months (180 days)
 
     // Insert invite into DB
     const { data: invite, error: insertError } = await supabase
