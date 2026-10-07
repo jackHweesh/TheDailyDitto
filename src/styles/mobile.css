@@ -6,13 +6,23 @@
     --safe-area-bg: #F6F6F7; /* Restore to original light gray */
   }
 
+  html, body, #root {
+    height: 100%;
+  }
+
+  body {
+    overscroll-behavior-y: contain;
+  }
+
   /* Main app container */
   .app-container {
     padding-top: var(--status-bar-height);
     padding-bottom: var(--bottom-safe-area);
     min-height: 100vh;
     overflow-y: auto;
-    overscroll-behavior: none;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-y: contain;
+    touch-action: pan-y;
     position: relative;
   }
 
@@ -58,6 +68,10 @@
   .content-area {
     padding-top: calc(var(--status-bar-height) + 60px); /* Adjust based on your header height */
     padding-bottom: calc(var(--bottom-safe-area) + 60px); /* Adjust based on your footer height */
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    touch-action: pan-y;
+    overscroll-behavior-y: contain;
   }
 
   /* Ensure dropdown menu is above header */
@@ -65,4 +79,4 @@
   [data-radix-popper-content-wrapper] {
     z-index: 2000 !important;
   }
-} 
+}
